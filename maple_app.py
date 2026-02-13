@@ -80,48 +80,81 @@ def append_row(worksheet_name, row_list):
     except Exception as e:
         st.error(f"שגיאה בשמירה: {e}")
         return False
-
+def update_data(worksheet_name, df):
+    """פונקציה לעדכון הטבלה כולה (עריכה)"""
+    try:
+        sheet = get_worksheet(worksheet_name)
+        sheet.clear() # מנקה את הגיליון
+        # מכין את הנתונים לכתיבה מחדש
+        data = [df.columns.tolist()] + df.astype(str).values.tolist()
+        sheet.update(data) 
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        st.error(f"שגיאה בעדכון: {e}")
+        return False
 # --- האפליקציה ---
 st.title("🐕 המעקב של מייפל")
 
 tab1, tab2, tab3 = st.tabs(["🏃 אימונים", "🦴 האכלות", "🎓 משימות"])
 
-# --- טאב 1: אימונים (Training) ---
+# --- טאב 1: אימונים (Training) - גרסה משודרגת ---
 with tab1:
     st.header("תיעוד חשיפה ונטישות")
     
-    # שימוש ב-FORM כדי למנוע ריצה חוזרת וקריסות
+    # --- חלק א: הוספה חדשה ---
     with st.form("train_form", clear_on_submit=True):
-        st.write("📝 **הוספת תיעוד חדש:**")
-        c1, c2 = st.columns(2)
+        st.subheader("📝 הוספת חדש")
+        c1, c2, c3 = st.columns(3)
         with c1:
             d_date = st.date_input("תאריך", datetime.now())
-            d_dur = st.number_input("זמן (דקות)", min_value=1, step=1)
         with c2:
-            # select_slider עובד הרבה יותר טוב ב-RTL מאשר slider רגיל
-            d_stress = st.select_slider("רמת לחץ (1=רגועה, 5=פאניקה)", options=[1, 2, 3, 4, 5], value=1)
-            d_note = st.text_area("הערות")
+            # כאן הוספנו את השעה
+            d_time = st.time_input("שעה", datetime.now().time())
+        with c3:
+            d_dur = st.number_input("זמן (דקות)", min_value=1, step=1)
             
-        submitted = st.form_submit_button("שמור תרגול 💾")
-        if submitted:
-            row = [str(d_date), d_dur, d_stress, d_note]
+        c4, c5 = st.columns([1, 2])
+        with c4:
+            d_stress = st.select_slider("לחץ (1-5)", options=[1, 2, 3, 4, 5], value=1)
+        with c5:
+            d_note = st.text_input("הערות")
+            
+        if st.form_submit_button("שמור 💾"):
+            # שימ לב: הוספנו את d_time לשמירה
+            row = [str(d_date), str(d_time), d_dur, d_stress, d_note]
             if append_row("Training", row):
-                st.success("התרגול נשמר בהצלחה!")
+                st.success("נשמר!")
                 st.rerun()
 
     st.divider()
     
-    # הצגת נתונים (מחוץ לטופס כדי שיתעדכן)
+    # --- חלק ב: עריכה וגרף ---
+    st.subheader("✏️ עריכת היסטוריה")
     df_train = get_data("Training")
-    if not df_train.empty and 'Date' in df_train.columns:
-        df_train['Date'] = pd.to_datetime(df_train['Date'], errors='coerce')
-        df_train['Duration'] = pd.to_numeric(df_train['Duration'], errors='coerce')
-        df_train = df_train.sort_values('Date')
+    
+    if not df_train.empty:
+        # הטבלה העריכה - מאפשרת לשנות כל שורה!
+        edited_df = st.data_editor(df_train, num_rows="dynamic", use_container_width=True, key="train_editor")
         
-        st.caption("📊 התקדמות זמן הישארות לבד:")
-        fig = px.line(df_train, x='Date', y='Duration', markers=True)
-        fig.update_traces(line_color='#FFA500')
-        st.plotly_chart(fig, use_container_width=True)
+        if st.button("עדכן שינויים בטבלה 🔄", key="upd_btn"):
+            if update_data("Training", edited_df):
+                st.success("עודכן!")
+                st.rerun()
+
+        # הגרף
+        st.divider()
+        if 'Date' in df_train.columns and 'Duration' in df_train.columns:
+            df_chart = df_train.copy()
+            df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
+            df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
+            df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
+
+            fig = px.line(df_chart, x='Date', y='Duration', markers=True, 
+                          title="זמן אימון (דקות)", labels={'Date':'', 'Duration':''})
+            fig.update_traces(line_color='#FFA500', marker_size=8)
+            fig.update_xaxes(dtick="D1", tickformat="%d/%m")
+            st.plotly_chart(fig, use_container_width=True)
 
 # --- טאב 2: האכלות (Feeding) ---
 with tab2:
@@ -234,4 +267,5 @@ with tab3:
             st.dataframe(df_logs, use_container_width=True)
     else:
         st.info("עדיין אין נתונים ביומן הביצועים (TaskLogs).")
+
 
