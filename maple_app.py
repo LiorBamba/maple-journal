@@ -37,9 +37,9 @@ tab1, tab2, tab3 = st.tabs(["🏃 אימונים וחשיפה", "🦴 האכלו
 # טאב 1: אימונים (קיים)
 # ==========================================
 with tab1:
-    st.header("תיעוד חשיפה ונטישות")
+    st.header("תיעוד יציאה מהבית")
     
-    with st.expander("📝 הוסף תרגול חשיפה", expanded=False):
+    with st.expander("📝 הוסף תרגול יציאה", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
             d_date = st.date_input("תאריך", datetime.now(), key="train_date")
@@ -104,6 +104,29 @@ with tab2:
                 st.rerun()
             except Exception as e:
                 st.error(f"שגיאה: {e}")
+
+# ==========================================
+    # גרפים וסטטיסטיקה לאוכל (להוסיף בטאב 2)
+    # ==========================================
+    if not df_food.empty and 'Date' in df_food.columns:
+        st.divider()
+        
+        # המרת תאריך לפורמט מתאים לגרף
+        df_food['Date'] = pd.to_datetime(df_food['Date'])
+        
+        # חישוב סך הכל יומי
+        daily_food = df_food.groupby('Date')['Amount'].sum().reset_index()
+        
+        st.caption("כמות אוכל יומית (גרם):")
+        # יצירת גרף עמודות ירוק
+        fig_food = px.bar(daily_food, x='Date', y='Amount')
+        fig_food.update_traces(marker_color='#4CAF50') # צבע ירוק
+        st.plotly_chart(fig_food, use_container_width=True)
+        
+        # טבלה מלאה למי שרוצה לראות היסטוריה
+        with st.expander("היסטוריית ארוחות מלאה"):
+            # מציג את הארוחות מהחדש לישן
+            st.dataframe(df_food.sort_values(by=['Date', 'Time'], ascending=False), use_container_width=True)
 
 # ==========================================
 # טאב 3: שיעורי בית (חדש!)
@@ -211,3 +234,44 @@ with tab3:
     df_logs = load_data("TaskLogs")
     if not df_logs.empty:
         st.dataframe(df_logs.sort_values(by='Date', ascending=False).head(10), use_container_width=True)
+
+# ==========================================
+    # גרפים וסטטיסטיקה (להוסיף בסוף טאב 3)
+    # ==========================================
+    if not df_logs.empty:
+        st.divider()
+        st.subheader("📊 ניתוח התקדמות")
+
+        # המרת תאריכים ומספרים לפורמט נכון
+        df_logs['Date'] = pd.to_datetime(df_logs['Date'])
+        # המרת הציון למספר (אם כתוב כלום זה יהיה NaN)
+        df_logs['Success'] = pd.to_numeric(df_logs['Success'], errors='coerce')
+
+        col_stat1, col_stat2 = st.columns(2)
+
+        # גרף 1: כמות תרגולים (התמדה)
+        with col_stat1:
+            st.caption("כמות תרגולים לפי סוג:")
+            # ספירה כמה פעמים עשינו כל תרגיל
+            task_counts = df_logs['TaskName'].value_counts().reset_index()
+            task_counts.columns = ['TaskName', 'Count']
+            
+            fig_count = px.bar(task_counts, x='TaskName', y='Count', color='TaskName')
+            st.plotly_chart(fig_count, use_container_width=True)
+
+        # גרף 2: שיפור בציונים (רק אם יש ציונים)
+        with col_stat2:
+            st.caption("מגמת הצלחה (ציונים 1-5):")
+            # מסננים שורות שאין בהן ציון
+            df_scores = df_logs.dropna(subset=['Success'])
+            
+            if not df_scores.empty:
+                # ממוצע יומי לכל תרגיל (במקרה שעשיתם אותו תרגיל פעמיים ביום)
+                daily_scores = df_scores.groupby(['Date', 'TaskName'])['Success'].mean().reset_index()
+                
+                fig_trend = px.line(daily_scores, x='Date', y='Success', color='TaskName', markers=True)
+                fig_trend.update_yaxes(range=[0, 5.5]) # קיבוע הסקאלה מ-0 עד 5
+                st.plotly_chart(fig_trend, use_container_width=True)
+            else:
+                st.info("עדיין אין נתונים עם ציוני הצלחה להצגה.")
+
