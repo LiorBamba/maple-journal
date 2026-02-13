@@ -2,90 +2,133 @@ import streamlit as st
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
+from datetime import datetime, time
 import plotly.express as px
 
 # --- הגדרות ---
-SHEET_NAME = "Maple Data"  # וודא שזה השם המדויק של הגיליון שיצרת!
+SHEET_NAME = "Maple Data" 
 
 # --- פונקציה לחיבור לגוגל שיטס ---
-def get_google_sheet():
-    # הגדרת הרשאות
+def get_google_sheet(worksheet_name):
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    
-    # טעינת המפתח מתוך ה"סודות" של סטרים-ליט
     creds_dict = st.secrets["gcp_service_account"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    
-    # חיבור
     client = gspread.authorize(creds)
-    return client.open(SHEET_NAME).sheet1
+    # פותח את הטאב הספציפי שביקשנו (אימונים או אוכל)
+    return client.open(SHEET_NAME).worksheet(worksheet_name)
 
-# --- טעינת נתונים ---
-def load_data():
+# --- פונקציות טעינה ושמירה כלליות ---
+def load_data(worksheet_name):
     try:
-        sheet = get_google_sheet()
+        sheet = get_google_sheet(worksheet_name)
         data = sheet.get_all_records()
         return pd.DataFrame(data)
     except Exception as e:
-        return pd.DataFrame() # מחזיר טבלה ריקה במקרה של שגיאה או גיליון ריק
-
-# --- שמירת נתונים ---
-def save_data(date, duration, stress, notes):
-    sheet = get_google_sheet()
-    # המרת התאריך למחרוזת כדי שיישמר יפה
-    date_str = date.strftime("%Y-%m-%d")
-    sheet.append_row([date_str, duration, stress, notes])
+        return pd.DataFrame()
 
 # --- עיצוב האפליקציה ---
 st.set_page_config(page_title="היומן של מייפל", page_icon="🐕")
 st.title("🐕 המעקב של מייפל")
-st.caption("הנתונים נשמרים ב-Google Sheets באופן מאובטח")
 
-# --- טופס הזנה ---
-with st.expander("📝 הוסף תרגול חדש", expanded=True):
-    col1, col2 = st.columns(2)
-    with col1:
-        d_date = st.date_input("תאריך", datetime.now())
-        d_duration = st.number_input("זמן (דקות)", min_value=1, step=1)
-    with col2:
-        d_stress = st.slider("רמת לחץ (1-רגועה, 5-פאניקה)", 1, 5, 1)
-        d_notes = st.text_area("הערות")
+# יצירת הטאבים
+tab1, tab2 = st.tabs(["🏃 אימונים וחשיפה", "bone: האכלות"])
 
-    if st.button("שמור דיווח"):
+# ==========================================
+# טאב 1: אימונים (הקוד הישן והטוב)
+# ==========================================
+with tab1:
+    st.header("תיעוד חשיפה")
+    
+    with st.expander("📝 הוסף תרגול חדש", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            d_date = st.date_input("תאריך", datetime.now(), key="train_date")
+            d_duration = st.number_input("זמן (דקות)", min_value=1, step=1, key="train_duration")
+        with col2:
+            d_stress = st.slider("רמת לחץ (1-רגועה, 5-פאניקה)", 1, 5, 1, key="train_stress")
+            d_notes = st.text_area("הערות", key="train_notes")
+
+        if st.button("שמור תרגול", key="save_train"):
+            try:
+                sheet = get_google_sheet("Sheet1") # הגיליון הראשון המקורי
+                date_str = d_date.strftime("%Y-%m-%d")
+                sheet.append_row([date_str, d_duration, d_stress, d_notes])
+                st.success("התרגול נשמר!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"שגיאה: {e}")
+
+    # גרפים לאימון
+    df_train = load_data("Sheet1")
+    if not df_train.empty and 'Date' in df_train.columns:
+        df_train['Date'] = pd.to_datetime(df_train['Date'])
+        df_train = df_train.sort_values(by='Date')
+        
+        st.divider()
+        st.caption("התקדמות בזמני הישארות לבד:")
+        fig = px.line(df_train, x='Date', y='Duration', markers=True)
+        fig.update_traces(line_color='#FFA500') # כתום
+        st.plotly_chart(fig, use_container_width=True)
+
+# ==========================================
+# טאב 2: האכלות (החדש!)
+# ==========================================
+with tab2:
+    st.header("יומן אכילה")
+    
+    # טעינת נתונים קיימים כדי למצוא את "הפעם האחרונה"
+    df_food = load_data("Feeding")
+    
+    # ברירות מחדל - אם יש היסטוריה, ניקח ממנה
+    default_amount = 100
+    default_time = datetime.now().time()
+    
+    if not df_food.empty:
+        last_row = df_food.iloc[-1]
         try:
-            with st.spinner('שומר לגוגל שיטס...'):
-                save_data(d_date, d_duration, d_stress, d_notes)
-            st.success("הנתונים נשמרו בהצלחה!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"שגיאה בשמירה: {e}")
+            default_amount = int(last_row['Amount'])
+            # אם נרצה גם את השעה האחרונה אפשר, אבל לרוב עדיף שעה נוכחית
+        except:
+            pass
 
-# --- תצוגה וגרפים ---
-st.divider()
-df = load_data()
+    with st.expander("🍖 הוסף ארוחה", expanded=True):
+        f_col1, f_col2 = st.columns(2)
+        
+        with f_col1:
+            f_date = st.date_input("תאריך", datetime.now(), key="food_date")
+            f_time = st.time_input("שעה", default_time, key="food_time")
+            f_type = st.selectbox("איזו ארוחה?", ["בוקר", "ערב", "אחר"], key="food_type")
+        
+        with f_col2:
+            f_amount = st.number_input("כמות (גרם)", value=default_amount, step=10, key="food_amount")
+            f_finished = st.checkbox("סיימה הכל מהצלחת?", value=True, key="food_finished")
+            f_notes = st.text_input("הערות (למשל: אכלה רק כשחזרנו)", key="food_notes")
 
-if not df.empty and 'Date' in df.columns:
-    # המרת עמודת התאריך לפורמט של תאריך אמיתי לטובת הגרף
-    df['Date'] = pd.to_datetime(df['Date'])
-    df = df.sort_values(by='Date')
+        if st.button("שמור ארוחה", key="save_food"):
+            try:
+                sheet = get_google_sheet("Feeding")
+                date_str = f_date.strftime("%Y-%m-%d")
+                time_str = f_time.strftime("%H:%M")
+                finished_str = "כן" if f_finished else "לא (נזרק)"
+                
+                sheet.append_row([date_str, time_str, f_type, f_amount, finished_str, f_notes])
+                st.success("בתאבון למייפל! נשמר.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"וודאו שיצרתם את הגיליון 'Feeding' בגוגל שיטס! שגיאה: {e}")
 
-    # מטריקות
-    c1, c2, c3 = st.columns(3)
-    c1.metric("סה\"כ אימונים", len(df))
-    c2.metric("שיא זמן (דקות)", df['Duration'].max())
-    if 'Stress' in df.columns:
-        last_stress = df['Stress'].iloc[-1]
-        c3.metric("סטרס באימון האחרון", last_stress)
-
-    # גרף
-    st.subheader("📊 גרף התקדמות")
-    fig = px.line(df, x='Date', y='Duration', markers=True, title='משך זמן לבד (דקות)')
-    fig.update_traces(line_color='#FFA500')
-    st.plotly_chart(fig, use_container_width=True)
-
-    # טבלה
-    with st.expander("ראו היסטוריה מלאה"):
-        st.dataframe(df.sort_values(by='Date', ascending=False), use_container_width=True)
-else:
-    st.info("עדיין אין נתונים בגיליון. זה הזמן להוסיף את האימון הראשון!")
+    # סטטיסטיקה לאוכל
+    if not df_food.empty and 'Date' in df_food.columns:
+        st.divider()
+        df_food['Date'] = pd.to_datetime(df_food['Date'])
+        
+        # גרף כמות יומית
+        daily_food = df_food.groupby('Date')['Amount'].sum().reset_index()
+        
+        st.caption("כמות אוכל יומית (גרם):")
+        fig_food = px.bar(daily_food, x='Date', y='Amount', title="צריכה יומית")
+        fig_food.update_traces(marker_color='#4CAF50') # ירוק
+        st.plotly_chart(fig_food, use_container_width=True)
+        
+        with st.expander("היסטוריית ארוחות מלאה"):
+            st.dataframe(df_food.sort_values(by=['Date', 'Time'], ascending=False), use_container_width=True)
