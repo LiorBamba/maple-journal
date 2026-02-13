@@ -203,3 +203,35 @@ with tab3:
                     st.rerun()
     else:
         st.info("אין תרגילים פעילים. צור תרגיל חדש למעלה.")
+   
+    st.divider()
+    st.subheader("📊 היסטוריית ביצועים")
+
+    # קריאת הנתונים מהגיליון TaskLogs
+    df_logs = get_data("TaskLogs")
+
+    if not df_logs.empty:
+        # המרה לפורמט תאריך ומספר כדי שהגרף יעבוד
+        if 'Date' in df_logs.columns:
+            df_logs['Date'] = pd.to_datetime(df_logs['Date'], errors='coerce')
+        if 'Success' in df_logs.columns:
+            df_logs['Success'] = pd.to_numeric(df_logs['Success'], errors='coerce')
+
+        # הצגת גרף נקודות (Scatter) - הכי מתאים לציונים בודדים
+        if 'Date' in df_logs.columns and 'Success' in df_logs.columns:
+            # מיון לפי תאריך
+            df_logs = df_logs.sort_values('Date')
+            
+            fig_task = px.scatter(df_logs, x='Date', y='Success', color='TaskName',
+                                  title="מעקב הצלחה לפי תרגיל",
+                                  labels={'Success': 'ציון (1-5)', 'Date': 'תאריך'})
+            # קובע שהציר יהיה תמיד מ-1 עד 5
+            fig_task.update_yaxes(range=[0.5, 5.5]) 
+            st.plotly_chart(fig_task, use_container_width=True)
+
+        # הצגת הטבלה המלאה למטה
+        with st.expander("ראה טבלה מלאה"):
+            st.dataframe(df_logs, use_container_width=True)
+    else:
+        st.info("עדיין אין נתונים ביומן הביצועים (TaskLogs).")
+
