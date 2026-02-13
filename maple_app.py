@@ -96,7 +96,7 @@ def update_data(worksheet_name, df):
 # --- האפליקציה ---
 st.title("🐕 המעקב של מייפל")
 
-tab1, tab2, tab3 = st.tabs(["🏃 אימונים", "🦴 האכלות", "🎓 משימות"])
+tab1, tab2, tab3 = st.tabs(["🏃 הישארות לבד", "🦴 האכלות", "🎓 משימות"])
 
 # --- טאב 1: אימונים (Training) - גרסה משודרגת ---
 with tab1:
@@ -267,5 +267,6 @@ with tab3:
             st.dataframe(df_logs, use_container_width=True)
     else:
         st.info("עדיין אין נתונים ביומן הביצועים (TaskLogs).")
+
 
 
