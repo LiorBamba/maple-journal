@@ -35,7 +35,35 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 2. חיבור נתונים ---
+# שימוש בקישור הנקי ביותר שאפשר (בלי gid ובלי edit בסוף)
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1URUI3gpIa2wx_gQdEawCDRp8Tw4h20gun2zeegC-Oz8"
+
 conn = st.connection("gsheets", type=GSheetsConnection)
+
+def get_data(worksheet_name):
+    """קריאת נתונים עם קישור מפורש"""
+    try:
+        # שימוש ב-SHEET_URL
+        df = conn.read(spreadsheet=SHEET_URL, worksheet=worksheet_name, ttl=0)
+        df = df.dropna(how='all')
+        return df
+    except Exception as e:
+        # הדפסת השגיאה למסך כדי שנבין אם זה עדיין 401
+        st.error(f"שגיאה בקריאת הגיליון '{worksheet_name}': {e}")
+        return pd.DataFrame()
+
+def append_row(worksheet_name, new_data_dict):
+    try:
+        existing_df = get_data(worksheet_name)
+        new_row = pd.DataFrame([new_data_dict])
+        updated_df = pd.concat([existing_df, new_row], ignore_index=True)
+        # שימוש ב-SHEET_URL
+        conn.update(spreadsheet=SHEET_URL, worksheet=worksheet_name, data=updated_df)
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        st.error(f"שגיאה בשמירה: {e}")
+        return False
 
 def get_data(worksheet_name):
     """קריאת נתונים ללא שמירה בזיכרון (TTL=0) כדי לראות שינויים מיד"""
@@ -218,3 +246,4 @@ with tab3:
                 st.rerun()
     else:
          st.info("אין תרגילים פעילים.")
+
