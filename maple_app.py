@@ -52,7 +52,7 @@ def append_row(worksheet_name, new_data_dict):
         existing_df = get_data(worksheet_name)
         new_row = pd.DataFrame([new_data_dict])
         
-        # וידוא שאין עמודות מיותרות
+        # וידוא שאין עמודות מיותרות ואיחוד
         updated_df = pd.concat([existing_df, new_row], ignore_index=True)
         
         conn.update(worksheet=worksheet_name, data=updated_df)
@@ -69,7 +69,7 @@ st.title("🐕 המעקב של מייפל")
 tab1, tab2, tab3 = st.tabs(["🏃 אימונים וחשיפה", "🦴 האכלות", "🎓 שיעורי בית"])
 
 # ==========================================
-# טאב 1: אימונים (Training) - השם החדש
+# טאב 1: אימונים (Training)
 # ==========================================
 with tab1:
     st.header("תיעוד חשיפה ונטישות")
@@ -91,7 +91,6 @@ with tab1:
                 "StressLevel": d_stress,
                 "Notes": d_notes
             }
-            # כאן שינינו את השם ל-Training
             if append_row("Training", row_data):
                 st.success("התרגול נשמר! רענן את הדף אם הנתונים לא מופיעים מיד.")
                 st.rerun()
@@ -102,7 +101,6 @@ with tab1:
     # קריאה מהטאב החדש Training
     df_train = get_data("Training")
     
-    # בדיקה שהעמודות הנכונות קיימות (פותר את הבעיה שהקוד "לא ניגש לקובץ")
     required_columns = ['Date', 'Duration']
     
     if df_train.empty:
