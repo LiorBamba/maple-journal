@@ -1,3 +1,31 @@
+import streamlit as st
+import pandas as pd
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from datetime import datetime, time
+import plotly.express as px
+
+# --- הגדרות ---
+SHEET_NAME = "Maple Data" 
+
+# --- פונקציה לחיבור לגוגל שיטס ---
+def get_google_sheet(worksheet_name):
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    creds_dict = st.secrets["gcp_service_account"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
+    return client.open(SHEET_NAME).worksheet(worksheet_name)
+
+# --- פונקציות טעינה ושמירה כלליות ---
+def load_data(worksheet_name):
+    try:
+        sheet = get_google_sheet(worksheet_name)
+        data = sheet.get_all_records()
+        return pd.DataFrame(data)
+    except Exception as e:
+        # אם אין נתונים או הגיליון ריק, נחזיר דאטה-פריים ריק כדי לא להקריס את האפליקציה
+        return pd.DataFrame()
+
 # --- עיצוב האפליקציה ---
 st.set_page_config(page_title="היומן של מייפל", page_icon="🐕")
 st.title("🐕 המעקב של מייפל")
@@ -10,10 +38,8 @@ tab1, tab2, tab3 = st.tabs(["🏃 אימונים וחשיפה", "🦴 האכלו
 # ==========================================
 with tab1:
     st.header("תיעוד חשיפה ונטישות")
-    # ... (כל הקוד הקיים של טאב 1 נשאר זהה, אין צורך לשנות) ...
-    # לטובת הדוגמה אני מניח שהקוד של טאב 1 נמצא כאן כרגיל
     
-    with st.expander("📝 הוסף תרגול חשיפה", expanded=False): # הקטנתי כדי לחסוך מקום בתצוגה כאן
+    with st.expander("📝 הוסף תרגול חשיפה", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
             d_date = st.date_input("תאריך", datetime.now(), key="train_date")
@@ -32,7 +58,7 @@ with tab1:
             except Exception as e:
                 st.error(f"שגיאה: {e}")
     
-    # גרף התקדמות (כמו במקור)
+    # גרף התקדמות
     df_train = load_data("Sheet1")
     if not df_train.empty and 'Date' in df_train.columns:
         df_train['Date'] = pd.to_datetime(df_train['Date'])
@@ -48,7 +74,7 @@ with tab1:
 # ==========================================
 with tab2:
     st.header("יומן אכילה")
-    # ... (כל הקוד הקיים של טאב 2 נשאר זהה) ...
+    
     df_food = load_data("Feeding")
     default_amount = 100
     if not df_food.empty:
@@ -153,17 +179,31 @@ with tab3:
 
     # --- חלק ג: ניהול ארכיון (אופציונלי - להעביר ללא פעיל) ---
     with st.expander("📂 ניהול ארכיון (הסתרת תרגילים)"):
-        task_to_archive = st.selectbox("בחר תרגיל להעביר לארכיון:", active_tasks, key="archive_select")
-        if st.button("העבר לארכיון"):
-            try:
-                sheet_tasks = get_google_sheet("Tasks")
-                # חיפוש השורה המתאימה ועדכון התא הרביעי (Status)
-                cell = sheet_tasks.find(task_to_archive)
-                sheet_tasks.update_cell(cell.row, 4, "Archived") # מניח שסטטוס הוא עמודה 4
-                st.success("התרגיל הועבר לארכיון")
-                st.rerun()
-            except Exception as e:
-                st.error(f"שגיאה בארכיון: {e}")
+        # מוודאים שיש משימות כדי לא ליצור שגיאה ב-selectbox
+        if active_tasks:
+            task_to_archive = st.selectbox("בחר תרגיל להעביר לארכיון:", active_tasks, key="archive_select")
+            if st.button("העבר לארכיון"):
+                try:
+                    sheet_tasks = get_google_sheet("Tasks")
+                    # חיפוש השורה המתאימה ועדכון התא הרביעי (Status)
+                    # הערה: זה פתרון פשוט שבו אנחנו סורקים את כל השורות עד שמוצאים
+                    # במערכת גדולה יותר עדיף מזהה ייחודי, אבל לכאן זה מצוין
+                    all_vals = sheet_tasks.get_all_values()
+                    # מוצאים את מספר השורה (מתחיל מ-1 בגוגל שיטס)
+                    row_idx = -1
+                    for i, row in enumerate(all_vals):
+                        if len(row) > 0 and row[0] == task_to_archive: # בודקים לפי שם המשימה
+                            row_idx = i + 1
+                            break
+                    
+                    if row_idx != -1:
+                        sheet_tasks.update_cell(row_idx, 4, "Archived") 
+                        st.success("התרגיל הועבר לארכיון")
+                        st.rerun()
+                    else:
+                        st.warning("לא נמצאה השורה בגיליון")
+                except Exception as e:
+                    st.error(f"שגיאה בארכיון: {e}")
 
     # --- חלק ד: טבלה מסכמת אחרונה ---
     st.divider()
