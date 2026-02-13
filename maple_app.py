@@ -22,13 +22,13 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- חיבור לגוגל שיטס (השיטה הישנה והטובה) ---
+# --- חיבור לגוגל שיטס ---
+# הקישור לקובץ שלך
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1URUI3gpIa2wx_gQdEawCDRp8Tw4h20gun2zeegC-Oz8"
 
 @st.cache_resource
 def get_client():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    # קריאת הקרדנשיאלס מה-Secrets במבנה הישן
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     return gspread.authorize(creds)
@@ -39,12 +39,30 @@ def get_worksheet(worksheet_name):
     return sh.worksheet(worksheet_name)
 
 def get_data(worksheet_name):
+    """
+    פונקציה משופרת שקוראת הכל כטקסט גולמי ואז ממירה ל-DataFrame.
+    זה מונע קריסות אם יש תאים עם פורמט מוזר.
+    """
     try:
         sheet = get_worksheet(worksheet_name)
-        data = sheet.get_all_records()
-        return pd.DataFrame(data)
+        # קריאת כל הערכים כולל הכל (רשימה של רשימות)
+        all_values = sheet.get_all_values()
+        
+        if not all_values:
+            return pd.DataFrame()
+
+        # השורה הראשונה היא הכותרות
+        headers = all_values[0]
+        # שאר השורות הן המידע
+        data = all_values[1:]
+
+        # יצירת DataFrame
+        df = pd.DataFrame(data, columns=headers)
+        return df
+        
     except Exception as e:
-        # st.error(f"שגיאה בטעינה: {e}")
+        # כאן אנחנו נראה בדיוק מה הבעיה אם יש כזו
+        st.error(f"שגיאה בקריאת הנתונים מ-{worksheet_name}: {e}")
         return pd.DataFrame()
 
 def append_row(worksheet_name, row_list):
@@ -75,24 +93,40 @@ with tab1:
             d_note = st.text_area("הערות", key="d_n")
             
         if st.button("שמור תרגול"):
-            # שים לב: סדר הנתונים חייב לתאום את העמודות בשיטס!
-            # Date, Duration, StressLevel, Notes
             row = [str(d_date), d_dur, d_stress, d_note]
             if append_row("Training", row):
                 st.success("נשמר!")
                 st.rerun()
 
     st.divider()
+    
+    # טעינת הנתונים
     df_train = get_data("Training")
-    if not df_train.empty:
+    
+    # --- דיבאג ---
+    # כאן נראה בדיוק מה המחשב רואה
+    with st.expander("🔍 בדיקת נתונים (Debug)", expanded=True):
+        if df_train.empty:
+            st.warning("המחשב טוען שהטבלה ריקה.")
+        else:
+            st.success(f"נמצאו {len(df_train)} רשומות.")
+            st.dataframe(df_train)
+
+    # --- יצירת הגרף ---
+    if not df_train.empty and 'Date' in df_train.columns and 'Duration' in df_train.columns:
+        # המרה יזומה למספרים ולתאריכים
         df_train['Date'] = pd.to_datetime(df_train['Date'], errors='coerce')
-        df_train = df_train.sort_values('Date')
+        df_train['Duration'] = pd.to_numeric(df_train['Duration'], errors='coerce')
+        
+        # ניקוי שורות ריקות שנוצרו בהמרה
+        df_train = df_train.dropna(subset=['Date', 'Duration']).sort_values('Date')
+        
         st.caption("התקדמות:")
-        fig = px.line(df_train, x='Date', y='Duration', markers=True)
+        fig = px.line(df_train, x='Date', y='Duration', markers=True, title="זמן הישארות (דקות)")
         fig.update_traces(line_color='#FFA500')
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("אין נתונים ב-Training")
+        st.info("אין מספיק נתונים לגרף עדיין.")
 
 # --- טאב 2: האכלות (Feeding) ---
 with tab2:
@@ -109,7 +143,6 @@ with tab2:
             f_note = st.text_input("הערות", key="f_n")
             
         if st.button("שמור ארוחה"):
-            # Date, Time, Type, Amount, Finished, Notes
             fin_str = "כן" if f_fin else "לא"
             row = [str(f_date), str(f_time), f_type, f_am, fin_str, f_note]
             if append_row("Feeding", row):
@@ -118,10 +151,11 @@ with tab2:
 
     st.divider()
     df_food = get_data("Feeding")
-    if not df_food.empty:
+    
+    if not df_food.empty and 'Date' in df_food.columns and 'Amount' in df_food.columns:
         df_food['Date'] = pd.to_datetime(df_food['Date'], errors='coerce')
-        # וידוא שזה מספר
         df_food['Amount'] = pd.to_numeric(df_food['Amount'], errors='coerce').fillna(0)
+        
         daily = df_food.groupby('Date')['Amount'].sum().reset_index()
         st.caption("כמות יומית:")
         st.plotly_chart(px.bar(daily, x='Date', y='Amount', color_discrete_sequence=['#4CAF50']), use_container_width=True)
@@ -142,7 +176,8 @@ with tab3:
     st.divider()
     df_tasks = get_data("Tasks")
     active = []
-    if not df_tasks.empty:
+    
+    if not df_tasks.empty and 'Status' in df_tasks.columns and 'TaskName' in df_tasks.columns:
         active = df_tasks[df_tasks['Status'] == 'Active']['TaskName'].tolist()
     
     if active:
@@ -154,7 +189,6 @@ with tab3:
             l_note = st.text_input("הערות", key="l_n")
             
         if st.button("תיעוד ביצוע"):
-            # Date, TaskName, Success, Notes
             if append_row("TaskLogs", [str(l_date), sel_task, l_score, l_note]):
                 st.success("תועד!")
                 st.rerun()
