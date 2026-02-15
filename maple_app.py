@@ -94,6 +94,56 @@ def update_data(worksheet_name, df):
         st.error(f"שגיאה בעדכון: {e}")
         return False
 
+def smart_update(worksheet_name, original_df, edited_df):
+    """
+    פונקציה חכמה שמעדכנת לפי האינדקס המקורי של השורה.
+    זה מאפשר לערוך את ה-10 שורות האחרונות בלי לדרוס את ההתחלה.
+    """
+    try:
+        sheet = get_worksheet(worksheet_name)
+        
+        # 1. בדיקת מחיקה: האם מחקו שורות בטבלה הערוכה?
+        # אנו בודקים אילו אינדקסים היו במקור וחסרים עכשיו
+        missing_indices = original_df.index.difference(edited_df.index)
+        
+        if not missing_indices.empty:
+            # מחיקה מהסוף להתחלה כדי לא לשבש את המספרים
+            for idx in sorted(missing_indices, reverse=True):
+                # המרה מאינדקס (מתחיל ב-0) למספר שורה בשיטס (מתחיל ב-2)
+                row_num = idx + 2
+                sheet.delete_rows(int(row_num))
+                st.success(f"שורה {row_num} נמחקה!")
+            
+            st.cache_data.clear()
+            return True
+
+        # 2. בדיקת שינויים: האם התוכן השתנה?
+        # אנחנו רצים רק על האינדקסים שקיימים בטבלה שערכנו
+        for idx in edited_df.index:
+            # אם השורה הזו קיימת במקור, נשווה אותה
+            if idx in original_df.index:
+                # המרה לטקסט לצורך השוואה
+                original_row = original_df.loc[idx].astype(str)
+                edited_row = edited_df.loc[idx].astype(str)
+                
+                if not original_row.equals(edited_row):
+                    # נמצא שינוי!
+                    row_num = idx + 2  # חישוב השורה האמיתית בגוגל
+                    new_values = edited_row.tolist()
+                    
+                    # עדכון כירורגי של השורה הספציפית
+                    sheet.update(range_name=f"A{row_num}", values=[new_values])
+                    st.success(f"שורה {row_num} עודכנה!")
+                    st.cache_data.clear()
+                    return True
+            
+        st.info("לא זוהו שינויים.")
+        return False
+        
+    except Exception as e:
+        st.error(f"שגיאה בעדכון: {e}")
+        return False
+
 # --- האפליקציה ---
 st.title("🐕 המעקב של מייפל")
 
@@ -130,26 +180,45 @@ with tab1:
     st.divider()
     
     # --- חלק ב: עריכה וגרף ---
-    st.subheader("✏️ עריכת היסטוריה")
-    df_train = get_data("Training")
+    st.subheader("✏️ עריכת היסטוריה (10 אחרונים)")
     
-    if not df_train.empty:
-        edited_df = st.data_editor(df_train, num_rows="dynamic", use_container_width=True, key="train_editor")
+    # 1. טעינת כל הנתונים
+    df_all = get_data("Training")
+    
+    if not df_all.empty:
+        # 2. חיתוך: לוקחים רק את ה-10 האחרונים
+        # הפקודה tail שומרת על האינדקס המקורי (למשל שורה 100 תישאר עם אינדקס 99)
+        df_tail = df_all.tail(10)
+
+        # 3. שמירת המצב המקורי של ה-10 האלו בזיכרון להשוואה
+        # אנחנו שומרים מפתח ייחודי לכל טאב (train_original)
+        if 'train_original' not in st.session_state:
+             st.session_state['train_original'] = df_tail.copy()
+
+        # 4. הצגת העורך רק ל-10 השורות
+        # num_rows="fixed" -> מונע הוספת שורות דרך הטבלה (כדי לא לבלבל את האינדקסים)
+        # להוספה יש לנו את הטופס למעלה!
+        edited_df = st.data_editor(df_tail, num_rows="fixed", use_container_width=True, key="train_editor")
         
-        if st.button("עדכן שינויים בטבלה 🔄", key="upd_btn"):
-            if update_data("Training", edited_df):
-                st.success("עודכן!")
+        if st.button("שמור שינויים 💾", key="save_tail_btn"):
+            # שימוש בפונקציה החדשה
+            # אנחנו משווים את מה שיש במסך (edited_df) למה ששמרנו בזיכרון (df_tail המקורי)
+            if smart_update("Training", st.session_state['train_original'], edited_df):
+                # ניקוי הזיכרון כדי לטעון מחדש בפעם הבאה
+                del st.session_state['train_original']
                 st.rerun()
 
-        # הגרף
+        # הגרף - נשאר מציג את כל ההיסטוריה (או רק 10, לבחירתך)
+        # כאן השארתי את הגרף מציג הכל כי בגרף דווקא כיף לראות היסטוריה
         st.divider()
-        if 'Date' in df_train.columns and 'Duration' in df_train.columns:
-            df_chart = df_train.copy()
+        if 'Date' in df_all.columns and 'Duration' in df_all.columns:
+            # שים לב: לגרף אני שולח את df_all ולא את df_tail
+            df_chart = df_all.copy()
+            # ... (המשך קוד הגרף שלך נשאר זהה) ...
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
             df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
 
-            # עדכון הכותרות לשעות
             fig = px.line(df_chart, x='Date', y='Duration', markers=True, 
                           title="זמן אימון (שעות)", labels={'Date':'', 'Duration':''})
             fig.update_traces(line_color='#FFA500', marker_size=8)
@@ -280,4 +349,5 @@ with tab3:
             st.dataframe(df_logs, use_container_width=True)
     else:
         st.info("עדיין אין נתונים ביומן הביצועים (TaskLogs).")
+
 
