@@ -9,7 +9,6 @@ import plotly.express as px
 st.set_page_config(page_title="היומן של מייפל", page_icon="🐕", layout="wide")
 
 # --- CSS RTL מתוקן ---
-# הוספתי תיקונים ספציפיים כדי שהסליידרים והטפסים יראו טוב
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap');
@@ -80,6 +79,7 @@ def append_row(worksheet_name, row_list):
     except Exception as e:
         st.error(f"שגיאה בשמירה: {e}")
         return False
+
 def update_data(worksheet_name, df):
     """פונקציה לעדכון הטבלה כולה (עריכה)"""
     try:
@@ -93,12 +93,13 @@ def update_data(worksheet_name, df):
     except Exception as e:
         st.error(f"שגיאה בעדכון: {e}")
         return False
+
 # --- האפליקציה ---
 st.title("🐕 המעקב של מייפל")
 
 tab1, tab2, tab3 = st.tabs(["🏃 הישארות לבד", "🦴 האכלות", "🎓 משימות"])
 
-# --- טאב 1: אימונים (Training) - גרסה משודרגת ---
+# --- טאב 1: אימונים (Training) ---
 with tab1:
     st.header("תיעוד חשיפה ונטישות")
     
@@ -109,10 +110,10 @@ with tab1:
         with c1:
             d_date = st.date_input("תאריך", datetime.now())
         with c2:
-            # כאן הוספנו את השעה
             d_time = st.time_input("שעה", datetime.now().time())
         with c3:
-            d_dur = st.number_input("זמן (דקות)", min_value=1, step=1)
+            # שינוי לדקות -> שעות, כולל פורמט עשרוני
+            d_dur = st.number_input("זמן (שעות)", min_value=0.0, step=0.25, format="%.2f")
             
         c4, c5 = st.columns([1, 2])
         with c4:
@@ -121,7 +122,6 @@ with tab1:
             d_note = st.text_input("הערות")
             
         if st.form_submit_button("שמור 💾"):
-            # שימ לב: הוספנו את d_time לשמירה
             row = [str(d_date), str(d_time), d_dur, d_stress, d_note]
             if append_row("Training", row):
                 st.success("נשמר!")
@@ -134,7 +134,6 @@ with tab1:
     df_train = get_data("Training")
     
     if not df_train.empty:
-        # הטבלה העריכה - מאפשרת לשנות כל שורה!
         edited_df = st.data_editor(df_train, num_rows="dynamic", use_container_width=True, key="train_editor")
         
         if st.button("עדכן שינויים בטבלה 🔄", key="upd_btn"):
@@ -150,8 +149,9 @@ with tab1:
             df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
 
+            # עדכון הכותרות לשעות
             fig = px.line(df_chart, x='Date', y='Duration', markers=True, 
-                          title="זמן אימון (דקות)", labels={'Date':'', 'Duration':''})
+                          title="זמן אימון (שעות)", labels={'Date':'', 'Duration':''})
             fig.update_traces(line_color='#FFA500', marker_size=8)
             fig.update_xaxes(dtick="D1", tickformat="%d/%m")
             st.plotly_chart(fig, use_container_width=True)
@@ -168,7 +168,8 @@ with tab2:
             f_time = st.time_input("שעה", datetime.now().time())
             f_type = st.selectbox("סוג ארוחה", ["בוקר", "ערב", "אחר"])
         with c2:
-            f_am = st.number_input("כמות (גרם)", value=100, step=10)
+            # שינוי לגרמים -> כוסות, ערך התחלתי 1.0
+            f_am = st.number_input("כמות (כוסות)", value=1.0, step=0.25, format="%.2f", help="1 כוס = 400 גרם")
             f_fin = st.checkbox("האם סיימה הכל?", value=True)
             f_note = st.text_input("הערות נוספות")
             
@@ -182,12 +183,21 @@ with tab2:
 
     st.divider()
     df_food = get_data("Feeding")
+    
     if not df_food.empty and 'Amount' in df_food.columns:
         df_food['Date'] = pd.to_datetime(df_food['Date'], errors='coerce')
         df_food['Amount'] = pd.to_numeric(df_food['Amount'], errors='coerce').fillna(0)
         daily = df_food.groupby('Date')['Amount'].sum().reset_index()
-        st.caption("📊 כמות אוכל יומית (גרם):")
+        
+        # עדכון כותרת הגרף לכוסות
+        st.caption("📊 כמות אוכל יומית (כוסות):")
         st.plotly_chart(px.bar(daily, x='Date', y='Amount', color_discrete_sequence=['#4CAF50']), use_container_width=True)
+        
+        # --- תוספת: טבלה להיסטוריית האכלות ---
+        st.divider()
+        st.subheader("📋 היסטוריית האכלות מלאה")
+        with st.expander("לחץ להצגת הטבלה"):
+             st.dataframe(df_food.sort_values(by='Date', ascending=False), use_container_width=True)
 
 # --- טאב 3: משימות (Tasks) ---
 with tab3:
@@ -236,7 +246,7 @@ with tab3:
                     st.rerun()
     else:
         st.info("אין תרגילים פעילים. צור תרגיל חדש למעלה.")
-   
+    
     st.divider()
     st.subheader("📊 היסטוריית ביצועים")
 
@@ -259,7 +269,10 @@ with tab3:
                                   title="מעקב הצלחה לפי תרגיל",
                                   labels={'Success': 'ציון (1-5)', 'Date': 'תאריך'})
             # קובע שהציר יהיה תמיד מ-1 עד 5
-            fig_task.update_yaxes(range=[0.5, 5.5]) 
+            fig_task.update_yaxes(range=[0.5, 5.5], dtick=1) 
+            # תיקון לציר ה-X שלא יראה שעות
+            fig_task.update_xaxes(dtick="D1", tickformat="%d/%m")
+            
             st.plotly_chart(fig_task, use_container_width=True)
 
         # הצגת הטבלה המלאה למטה
@@ -267,6 +280,3 @@ with tab3:
             st.dataframe(df_logs, use_container_width=True)
     else:
         st.info("עדיין אין נתונים ביומן הביצועים (TaskLogs).")
-
-
-
