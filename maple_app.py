@@ -117,7 +117,7 @@ with tab1:
             
         c4, c5 = st.columns([1, 2])
         with c4:
-            d_stress = st.select_slider("לחץ (1-5)", options=[1, 2, 3, 4, 5], value=1)
+            d_stress = st.select_slider("לחץ (1-5)", options=[1, 2, 3, 4, 5], value=3)
         with c5:
             d_note = st.text_input("הערות")
             
@@ -280,3 +280,4 @@ with tab3:
             st.dataframe(df_logs, use_container_width=True)
     else:
         st.info("עדיין אין נתונים ביומן הביצועים (TaskLogs).")
+
