@@ -241,7 +241,7 @@ with tab1:
             fig.update_xaxes(dtick="D1", tickformat="%d/%m")
             st.plotly_chart(fig, use_container_width=True)
 
-# --- טאב 2: האכלות (Feeding) - גרסה משודרגת ---
+# --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
     st.header("יומן אכילה")
     
@@ -251,12 +251,9 @@ with tab2:
         c1, c2 = st.columns(2)
         with c1:
             f_date = st.date_input("תאריך", datetime.now())
-            # datetime.now().time() לוקח את השעה הנוכחית במחשב/שרת
-            # את העיצוב לשיטס (בלי שניות) נסדר בשמירה עצמה
             f_time = st.time_input("שעה", datetime.now().time())
             f_type = st.selectbox("סוג ארוחה", ["בוקר", "ערב", "אחר"])
         with c2:
-            # כמות בכוסות
             f_am = st.number_input("כמות (כוסות)", value=1.0, step=0.25, format="%.2f", help="1 כוס = 400 גרם")
             f_fin = st.checkbox("האם סיימה הכל?", value=True)
             f_note = st.text_input("הערות נוספות")
@@ -264,7 +261,6 @@ with tab2:
         submitted_food = st.form_submit_button("שמור ארוחה 💾")
         if submitted_food:
             fin_str = "כן" if f_fin else "לא"
-            # כאן אנחנו מעצבים את השעה שתישמר יפה (09:30) ולא ארוך
             time_str = f_time.strftime("%H:%M") 
             row = [str(f_date), time_str, f_type, f_am, fin_str, f_note]
             
@@ -280,23 +276,18 @@ with tab2:
     df_food = get_data("Feeding")
     
     if not df_food.empty:
-        # 1. ניקוי ועיצוב הנתונים לתצוגה יפה בטבלה
-        # ניקוי תאריך: הסרת השעות (00:00:00) אם קיימות
+        # ניקוי נתונים
         if 'Date' in df_food.columns:
             df_food['Date'] = pd.to_datetime(df_food['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
-        
-        # ניקוי שעה: אם השעה ארוכה מדי, נקצר אותה
         if 'Time' in df_food.columns:
             df_food['Time'] = df_food['Time'].astype(str).apply(lambda x: x[:5] if len(x) > 5 else x)
 
-        # 2. חיתוך ל-10 שורות אחרונות
+        # חיתוך ל-10 אחרונים ועורך
         df_tail = df_food.tail(10)
 
-        # 3. שמירת המצב המקורי לזיכרון (מפתח ייחודי feed_original)
         if 'feed_original' not in st.session_state:
             st.session_state['feed_original'] = df_tail.copy()
 
-        # 4. הצגת העורך
         edited_feed = st.data_editor(
             df_tail, 
             num_rows="fixed", 
@@ -308,28 +299,37 @@ with tab2:
             }
         )
         
-        # 5. כפתור שמירה
         if st.button("שמור שינויים בטבלה 💾", key="save_feed_btn"):
             if smart_update("Feeding", st.session_state['feed_original'], edited_feed):
                 del st.session_state['feed_original']
                 st.success("הטבלה עודכנה!")
                 st.rerun()
 
-        # --- חלק ג: הגרף ---
+        # --- חלק ג: הגרף הצבעוני ---
         st.divider()
-        if 'Amount' in df_food.columns:
-            # הכנת נתונים לגרף (המרה למספרים)
+        if 'Amount' in df_food.columns and 'Finished' in df_food.columns:
             df_chart = df_food.copy()
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
             df_chart['Amount'] = pd.to_numeric(df_chart['Amount'], errors='coerce').fillna(0)
             
-            daily = df_chart.groupby('Date')['Amount'].sum().reset_index()
+            # קיבוץ גם לפי תאריך וגם לפי "האם סיימה" (כדי לפצל צבעים)
+            daily = df_chart.groupby(['Date', 'Finished'])['Amount'].sum().reset_index()
             
             st.caption("📊 כמות אוכל יומית (כוסות):")
-            fig = px.bar(daily, x='Date', y='Amount', color_discrete_sequence=['#4CAF50'])
-            fig.update_xaxes(dtick="D1", tickformat="%d/%m") # תאריך יפה בציר
+            
+            # יצירת גרף עם צבעים מותאמים אישית
+            fig = px.bar(daily, x='Date', y='Amount', color='Finished',
+                         title="מעקב אכילה (ירוק=סיימה, אדום=לא סיימה)",
+                         # כאן המג'יק קורה: מיפוי צבעים
+                         color_discrete_map={
+                             "כן": "#4CAF50",  # ירוק
+                             "לא": "#FF5252"   # אדום בוהק
+                         },
+                         labels={'Date': 'תאריך', 'Amount': 'כמות', 'Finished': 'סיימה?'})
+            
+            fig.update_xaxes(dtick="D1", tickformat="%d/%m")
             st.plotly_chart(fig, use_container_width=True)
-
+            
 # --- טאב 3: משימות (Tasks) ---
 with tab3:
     st.header("ניהול משימות")
@@ -411,6 +411,7 @@ with tab3:
             st.dataframe(df_logs, use_container_width=True)
     else:
         st.info("עדיין אין נתונים ביומן הביצועים (TaskLogs).")
+
 
 
 
