@@ -4,43 +4,24 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import plotly.express as px
+import time  # <--- הוספנו את זה בשביל ההשהיות
 
 # --- הגדרות דף ---
 st.set_page_config(page_title="היומן של מייפל", page_icon="🐕", layout="wide")
 
-# --- CSS RTL מתוקן ---
+# ... (ה-CSS נשאר אותו דבר, אין צורך לשנות) ...
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap');
-    
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         direction: RTL;
         text-align: right;
         font-family: 'Rubik', sans-serif;
     }
-    
-    /* יישור טאבים */
-    [data-baseweb="tab-list"] { 
-        direction: RTL; 
-        display: flex; 
-        justify-content: flex-end; 
-    }
-    
-    /* יישור כללי של אינפוטים */
-    input, textarea, .stSelectbox, .stNumberInput { 
-        direction: RTL; 
-        text-align: right; 
-    }
-    
-    /* תיקון לסליידרים ב-RTL שלא ישברו */
-    [data-testid="stSlider"] {
-        direction: ltr; /* הסליידר עצמו צריך להיות LTR כדי שהחישובים לא ישברו */
-    }
-    
-    /* יישור כפתורים למרכז/שמאל */
-    .stButton button {
-        width: 100%;
-    }
+    [data-baseweb="tab-list"] { direction: RTL; display: flex; justify-content: flex-end; }
+    input, textarea, .stSelectbox, .stNumberInput { direction: RTL; text-align: right; }
+    [data-testid="stSlider"] { direction: ltr; }
+    .stButton button { width: 100%; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -55,31 +36,66 @@ def get_client():
     return gspread.authorize(creds)
 
 def get_worksheet(worksheet_name):
-    client = get_client()
-    sh = client.open_by_url(SHEET_URL)
-    return sh.worksheet(worksheet_name)
+    # מנגנון ניסיון חוזר גם בחיבור לגיליון
+    for i in range(3):
+        try:
+            client = get_client()
+            sh = client.open_by_url(SHEET_URL)
+            return sh.worksheet(worksheet_name)
+        except Exception as e:
+            if "429" in str(e):
+                time.sleep(2) # חכה 2 שניות ונסה שוב
+                continue
+            else:
+                raise e
 
+# --- פונקציית קריאה חכמה (מונעת קריסות 429) ---
+@st.cache_data(ttl=60) # שומר בזיכרון ל-60 שניות כדי לא להציף את גוגל
 def get_data(worksheet_name):
-    try:
-        sheet = get_worksheet(worksheet_name)
-        all_values = sheet.get_all_values()
-        if not all_values: return pd.DataFrame()
-        headers = all_values[0]
-        data = all_values[1:]
-        return pd.DataFrame(data, columns=headers)
-    except:
-        return pd.DataFrame()
+    retries = 3
+    for n in range(retries):
+        try:
+            sheet = get_worksheet(worksheet_name)
+            all_values = sheet.get_all_values()
+            
+            if not all_values: return pd.DataFrame()
+            
+            headers = all_values[0]
+            data = all_values[1:]
+            return pd.DataFrame(data, columns=headers)
+            
+        except Exception as e:
+            # אם השגיאה היא 429 (Quota exceeded)
+            if "429" in str(e):
+                if n < retries - 1: # אם נשארו ניסיונות
+                    time.sleep(2 ** (n + 1)) # המתנה מדורגת: 2 שניות, 4 שניות...
+                    continue
+            # אם זו שגיאה אחרת או שנגמרו הניסיונות
+            st.error(f"שגיאה בטעינת נתונים (נסה לרענן): {e}")
+            return pd.DataFrame()
+    return pd.DataFrame()
 
+# --- פונקציית הוספה חכמה ---
 def append_row(worksheet_name, row_list):
     try:
         sheet = get_worksheet(worksheet_name)
         sheet.append_row(row_list)
-        st.cache_data.clear()
+        st.cache_data.clear() # מנקה את הזיכרון כדי שנראה את העדכון
         return True
     except Exception as e:
+        if "429" in str(e):
+            st.warning("גוגל עמוס, מנסה שוב בעוד רגע...")
+            time.sleep(3)
+            try:
+                sheet.append_row(row_list)
+                st.cache_data.clear()
+                return True
+            except:
+                st.error("נכשלנו בשמירה עקב עומס. נסה שוב בעוד דקה.")
+                return False
         st.error(f"שגיאה בשמירה: {e}")
         return False
-
+        
 def update_data(worksheet_name, df):
     """פונקציה לעדכון הטבלה כולה (עריכה)"""
     try:
@@ -349,5 +365,6 @@ with tab3:
             st.dataframe(df_logs, use_container_width=True)
     else:
         st.info("עדיין אין נתונים ביומן הביצועים (TaskLogs).")
+
 
 
