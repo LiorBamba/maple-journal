@@ -4,8 +4,11 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import plotly.express as px
-import time  # <--- הוספנו את זה בשביל ההשהיות
+import time 
+import pytz # <--- חדש: ספרייה לאזורי זמן
 
+# --- הגדרת שעון ישראל ---
+IL_TZ = pytz.timezone('Asia/Jerusalem')
 # --- הגדרות דף ---
 st.set_page_config(page_title="היומן של מייפל", page_icon="🐕", layout="wide")
 
@@ -174,9 +177,9 @@ with tab1:
         st.subheader("📝 הוספת חדש")
         c1, c2, c3 = st.columns(3)
         with c1:
-            d_date = st.date_input("תאריך", datetime.now())
+            d_date = st.date_input("תאריך", datetime.now(IL_TZ))
         with c2:
-            d_time = st.time_input("שעה", datetime.now().time())
+            d_time = st.time_input("שעה", datetime.now(IL_TZ).time())
         with c3:
             # שינוי לדקות -> שעות, כולל פורמט עשרוני
             d_dur = st.number_input("זמן (שעות)", min_value=0.0, step=0.25, format="%.2f")
@@ -250,8 +253,8 @@ with tab2:
         st.subheader("🍖 הוספת ארוחה")
         c1, c2 = st.columns(2)
         with c1:
-            f_date = st.date_input("תאריך", datetime.now())
-            f_time = st.time_input("שעה", datetime.now().time())
+            f_date = st.date_input("תאריך", datetime.now(IL_TZ))
+            f_time = st.time_input("שעה", datetime.now(IL_TZ).time())
             f_type = st.selectbox("סוג ארוחה", ["בוקר", "ערב", "אחר"])
         with c2:
             f_am = st.number_input("כמות (כוסות)", value=1.0, step=0.25, format="%.2f", help="1 כוס = 400 גרם")
@@ -363,7 +366,7 @@ with tab3:
             
             c1, c2 = st.columns(2)
             with c1: 
-                l_date = st.date_input("תאריך ביצוע", datetime.now())
+                l_date = st.date_input("תאריך ביצוע", datetime.now(IL_TZ))
             with c2: 
                 # שימוש ב-select_slider לשיפור המראה
                 l_score = st.select_slider("איך הלך? (1=גרוע, 5=מצויין)", options=[1, 2, 3, 4, 5], value=3)
@@ -411,6 +414,7 @@ with tab3:
             st.dataframe(df_logs, use_container_width=True)
     else:
         st.info("עדיין אין נתונים ביומן הביצועים (TaskLogs).")
+
 
 
 
