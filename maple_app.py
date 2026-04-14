@@ -227,22 +227,54 @@ with tab1:
                 del st.session_state['train_original']
                 st.rerun()
 
-        # הגרף - נשאר מציג את כל ההיסטוריה (או רק 10, לבחירתך)
-        # כאן השארתי את הגרף מציג הכל כי בגרף דווקא כיף לראות היסטוריה
+        # --- הגרף המרכזי: קו מגמה משמעותי + כל הנקודות ---
         st.divider()
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
-            # שים לב: לגרף אני שולח את df_all ולא את df_tail
             df_chart = df_all.copy()
-            # ... (המשך קוד הגרף שלך נשאר זהה) ...
+            
+            # המרת נתונים
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
             df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
+            df_chart['Stress'] = pd.to_numeric(df_chart.get('Stress', 3), errors='coerce')
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
+            
+            # 1. סינון הנתונים לקו המגמה (רק ארוכים או לחוצים)
+            df_line = df_chart[(df_chart['Duration'] > 0.5) | (df_chart['Stress'] >= 4)]
 
-            fig = px.line(df_chart, x='Date', y='Duration', markers=True, 
-                          title="זמן אימון (שעות)", labels={'Date':'', 'Duration':''})
-            fig.update_traces(line_color='#FFA500', marker_size=8)
-            fig.update_xaxes(dtick="D1", tickformat="%d/%m")
-            st.plotly_chart(fig, use_container_width=True)
+            if not df_chart.empty:
+                # יצירת הגרף הבסיסי עם קו המגמה בלבד
+                fig = px.line(df_line, x='Date', y='Duration', 
+                              title="📈 מעקב אימונים: קו מגמה (משמעותי) וכל האימונים (נקודות)", 
+                              labels={'Date':'', 'Duration':'זמן אימון (שעות)'})
+                
+                # עיצוב הקו - אפור עדין ומקוקו כדי להדגיש שמדובר במגמה
+                fig.update_traces(line=dict(color='#D3D3D3', width=2, dash='dot'), name="מגמת התקדמות")
+                
+                # 2. הוספת שכבת הנקודות - משתמשת ב-df_chart המלא (כולל הקצרים)
+                fig.add_scatter(
+                    x=df_chart['Date'], 
+                    y=df_chart['Duration'],
+                    mode='markers',
+                    marker=dict(
+                        size=10,
+                        color=df_chart['Stress'],
+                        # סקאלת צבעים: ירוק (1) -> צהוב (3) -> אדום (5)
+                        colorscale=[[0, "#4CAF50"], [0.5, "#FFC107"], [1.0, "#FF5252"]],
+                        cmin=1, cmax=5,
+                        showscale=True,
+                        colorbar=dict(title="מדד לחץ", x=1.1)
+                    ),
+                    customdata=df_chart['Stress'],
+                    hovertemplate="<b>תאריך:</b> %{x}<br><b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>",
+                    name="כל האימונים"
+                )
+    
+                # הגדרות צירים
+                fig.update_layout(hovermode="closest")
+                fig.update_xaxes(dtick="D1", tickformat="%d/%m")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("אין מספיק נתונים להצגת הגרף.")
 
 # --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
