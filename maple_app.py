@@ -248,8 +248,8 @@ with tab1:
             
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            # --- הגרף המאוחד: עצימות, מגמה ונקודות ---
-        
+        # --- הגרף המאוחד: עצימות, מגמה ונקודות ---
+        st.divider()
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
             import plotly.graph_objects as go
             
@@ -261,9 +261,7 @@ with tab1:
             df_chart['Stress'] = pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3)
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            # --- חישוב מדד עצימות משוקלל (זמן + לחץ + דעיכה אקספוננציאלית) ---
-            # מכפילים את הזמן ברמת הלחץ ומחלקים ב-3
-            # כך לחץ 3 (רגיל) משאיר את הזמן כפי שהוא, לחץ 5 מגדיל אותו, ולחץ 1 מקטין אותו
+            # --- חישוב מדד עצימות משוקלל ---
             df_chart['Weighted_Duration'] = df_chart['Duration'] * (df_chart['Stress'] / 3.0)
             
             daily = df_chart.groupby('Date')['Weighted_Duration'].sum().reset_index()
@@ -275,21 +273,35 @@ with tab1:
                 weights = [0.5**(length - 1 - i) for i in range(length)]
                 return sum(w * val for w, val in zip(weights, window))
             
-            # מריצים את חלון הזמן על הזמן המשוקלל החדש (Weighted_Duration) במקום על הזמן הרגיל
             daily['Intensity'] = daily['Weighted_Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
             daily = daily.reset_index()
-            
+
+            # --- חישוב טווחי עצימות (אזורי מאמץ לפי אחוזונים) ---
+            q20 = daily['Intensity'].quantile(0.20) # 2 עשירונים תחתונים
+            q90 = daily['Intensity'].quantile(0.90) # עשירון עליון
+            max_intensity = daily['Intensity'].max()
+            top_bound = max_intensity * 1.2 if max_intensity > 0 else 1 # קצת אוויר למעלה
+
             # --- בניית הגרף המאוחד ---
             fig = go.Figure()
 
-            # 1. שכבת האנרגיה/עצימות (שטח שקוף בתוך הרקע)
+            # רקעי צבע (Zones) כדי להראות את טווחי העצימות
+            fig.add_hrect(y0=0, y1=q20, line_width=0, fillcolor="#2196F3", opacity=0.15, 
+                          annotation_text="🔵 מעט מדי תרגול (20% תחתונים)", annotation_position="top left", annotation_font_color="#1565C0")
+            fig.add_hrect(y0=q20, y1=q90, line_width=0, fillcolor="#4CAF50", opacity=0.15, 
+                          annotation_text="🟢 עצימות אידיאלית", annotation_position="top left", annotation_font_color="#2E7D32")
+            fig.add_hrect(y0=q90, y1=top_bound, line_width=0, fillcolor="#F44336", opacity=0.15, 
+                          annotation_text="🔴 עומס יתר (עשירון עליון)", annotation_position="top left", annotation_font_color="#C62828")
+
+            # 1. שכבת האנרגיה/עצימות (עם החלקה - Spline)
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=daily['Intensity'],
                 fill='tozeroy',
                 mode='lines',
                 name='עצימות (עומס מורגש)',
-                line=dict(color='rgba(255, 152, 0, 0.4)', width=0),
-                fillcolor='rgba(255, 152, 0, 0.2)',
+                # shape='spline' זה מה שהופך את הקו למוחלק וזורם במקום זוויות חדות
+                line=dict(color='rgba(80, 80, 80, 0.8)', width=3, shape='spline'),
+                fillcolor='rgba(150, 150, 150, 0.1)',
                 hovertemplate="עומס מורגש: %{y:.2f}<extra></extra>"
             ))
 
@@ -299,7 +311,7 @@ with tab1:
                 x=df_line['Date'], y=df_line['Duration'],
                 mode='lines',
                 name='קו מגמה',
-                line=dict(color='rgba(150, 150, 150, 0.5)', width=2, dash='dot'),
+                line=dict(color='rgba(150, 150, 150, 0.6)', width=2, dash='dot'),
                 hovertemplate="מגמה: %{y} שעות<extra></extra>"
             ))
 
@@ -339,7 +351,7 @@ with tab1:
             st.link_button("פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True)
 
         else:
-            st.info("אין מספיק נתונים")
+            st.info("אין מספיק נתונים להצגת הגרף המאוחד.")
 
 # --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
