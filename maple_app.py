@@ -228,37 +228,43 @@ with tab1:
                 st.rerun()
 
         # --- הגרף המרכזי: קו מגמה משמעותי + כל הנקודות ---
+        # --- הגרפים של טאב 1 ---
         st.divider()
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
             df_chart = df_all.copy()
             
+            # --- תיקון שליפת מדד הלחץ ---
+            # מציאת עמודת הלחץ לפי המיקום שלה (העמודה הרביעית) כדי לעקוף בעיות של שמות עמודות בעברית/אנגלית
+            stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'Stress'
+            
             # המרת נתונים
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
             df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
-            df_chart['Stress'] = pd.to_numeric(df_chart.get('Stress', 3), errors='coerce')
+            # קריאת מדד הלחץ האמיתי מהגיליון
+            df_chart['Stress'] = pd.to_numeric(df_chart[stress_col], errors='coerce')
+            
+            # רק אם באמת חסר ערך בשורה, נשים 3 כברירת מחדל
+            df_chart['Stress'] = df_chart['Stress'].fillna(3)
+            
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            # 1. סינון הנתונים לקו המגמה (רק ארוכים או לחוצים)
+            # -------- גרף 1: קו מגמה ונקודות (עם הלחץ המתוקן) --------
             df_line = df_chart[(df_chart['Duration'] > 0.5) | (df_chart['Stress'] >= 4)]
 
             if not df_chart.empty:
-                # יצירת הגרף הבסיסי עם קו המגמה בלבד
-                fig = px.line(df_line, x='Date', y='Duration', 
+                fig1 = px.line(df_line, x='Date', y='Duration', 
                               title="📈 מעקב אימונים: קו מגמה (משמעותי) וכל האימונים (נקודות)", 
                               labels={'Date':'', 'Duration':'זמן אימון (שעות)'})
                 
-                # עיצוב הקו - אפור עדין ומקוקו כדי להדגיש שמדובר במגמה
-                fig.update_traces(line=dict(color='#D3D3D3', width=2, dash='dot'), name="מגמת התקדמות")
+                fig1.update_traces(line=dict(color='#D3D3D3', width=2, dash='dot'), name="מגמת התקדמות")
                 
-                # 2. הוספת שכבת הנקודות - משתמשת ב-df_chart המלא (כולל הקצרים)
-                fig.add_scatter(
+                fig1.add_scatter(
                     x=df_chart['Date'], 
                     y=df_chart['Duration'],
                     mode='markers',
                     marker=dict(
                         size=10,
                         color=df_chart['Stress'],
-                        # סקאלת צבעים: ירוק (1) -> צהוב (3) -> אדום (5)
                         colorscale=[[0, "#4CAF50"], [0.5, "#FFC107"], [1.0, "#FF5252"]],
                         cmin=1, cmax=5,
                         showscale=True,
@@ -269,12 +275,37 @@ with tab1:
                     name="כל האימונים"
                 )
     
-                # הגדרות צירים
-                fig.update_layout(hovermode="closest")
-                fig.update_xaxes(dtick="D1", tickformat="%d/%m")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("אין מספיק נתונים להצגת הגרף.")
+                fig1.update_layout(hovermode="closest")
+                fig1.update_xaxes(dtick="D1", tickformat="%d/%m")
+                st.plotly_chart(fig1, use_container_width=True)
+            
+            # -------- גרף 2: "אנרגיית" אימונים (7 Days Moving Average) --------
+            st.divider()
+            
+            # מקבצים לפי תאריך כדי לסכום אימונים מרובים באותו יום
+            daily_duration = df_chart.groupby('Date')['Duration'].sum().reset_index()
+            
+            # המג'יק: הופכים את התאריך לאינדקס וממלאים ימים ריקים ב-0 (ימים ללא תרגול)
+            daily_duration.set_index('Date', inplace=True)
+            daily_duration = daily_duration.resample('D').sum().fillna(0)
+            
+            # חישוב האנרגיה: סכום השעות המצטבר בכל חלון של 7 ימים
+            daily_duration['7_Day_Energy'] = daily_duration['Duration'].rolling(window=7, min_periods=1).sum()
+            daily_duration = daily_duration.reset_index()
+            
+            # ציור גרף שטח (Area) שנותן תחושה של "מד מאמץ" מצטבר
+            fig_energy = px.area(daily_duration, x='Date', y='7_Day_Energy',
+                                 title="🔋 'אנרגיית' השבוע (סך שעות אימון מצטבר לכל 7 ימים)",
+                                 labels={'Date':'', '7_Day_Energy':'שעות אימון ב-7 ימים'})
+            
+            # צבע סגול/כחול זורם שמראה את המאמץ השבועי
+            fig_energy.update_traces(line_color='#673AB7', fillcolor='rgba(103, 58, 183, 0.3)', mode='lines+markers')
+            fig_energy.update_xaxes(dtick="D1", tickformat="%d/%m")
+            
+            st.plotly_chart(fig_energy, use_container_width=True)
+            
+        else:
+            st.info("אין מספיק נתונים להצגת הגרפים.")
 
 # --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
