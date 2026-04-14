@@ -198,42 +198,37 @@ with tab1:
 
     st.divider()
     
+    # --- חלק ב: עריכת היסטוריה (10 אחרונים) - UI משופר ---
     st.subheader("✏️ עריכת היסטוריה (10 אחרונים)")
     
-    # 1. טעינת כל הנתונים
     df_all = get_data("Training")
     
     if not df_all.empty:
-        # --- שדרוג UI: ניקוי הנתונים לפני התצוגה ---
-        # חיתוך המילי-שניות מעמודת השעה (נשאיר רק HH:MM)
+        # ניקוי פורמט השעה לתצוגה נקייה
         if 'Time' in df_all.columns:
             df_all['Time'] = df_all['Time'].astype(str).apply(lambda x: x[:5] if len(x) > 5 else x)
         
-        # המרה למספרים כדי שהעורך ייתן לנו חיצים קטנים לעריכה (Steppers)
-        if 'Duration' in df_all.columns:
-            df_all['Duration'] = pd.to_numeric(df_all['Duration'], errors='coerce')
-        if 'StressLevel' in df_all.columns:
-            df_all['StressLevel'] = pd.to_numeric(df_all['StressLevel'], errors='coerce')
+        # המרה למספרים לטובת עריכה נוחה
+        stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'StressLevel'
+        df_all['Duration'] = pd.to_numeric(df_all['Duration'], errors='coerce')
+        df_all[stress_col] = pd.to_numeric(df_all[stress_col], errors='coerce').fillna(3)
 
-        # 2. חיתוך: לוקחים רק את ה-10 האחרונים
         df_tail = df_all.tail(10)
-
-        # 3. שמירת המצב המקורי בזיכרון להשוואה
         if 'train_original' not in st.session_state:
              st.session_state['train_original'] = df_tail.copy()
 
-        # 4. הצגת העורך המעוצב!
+        # עורך הטבלה עם עיצוב עברי נקי
         edited_df = st.data_editor(
             df_tail, 
             num_rows="fixed", 
             use_container_width=True, 
-            hide_index=True, # מעלים את העמודה של מספרי השורות (7, 8, 9...)
+            hide_index=True, 
             key="train_editor",
             column_config={
                 "Date": st.column_config.Column("📅 תאריך"),
                 "Time": st.column_config.Column("⏰ שעה"),
-                "Duration": st.column_config.NumberColumn("⏳ זמן (שעות)", format="%.2f", min_value=0.0, step=0.25),
-                "StressLevel": st.column_config.NumberColumn("😰 מדד לחץ", min_value=1, max_value=5, step=1),
+                "Duration": st.column_config.NumberColumn("⏳ זמן (שעות)", format="%.2f", step=0.25),
+                stress_col: st.column_config.NumberColumn("😰 מדד לחץ", min_value=1, max_value=5, step=1),
                 "Notes": st.column_config.TextColumn("📝 הערות")
             }
         )
@@ -243,22 +238,18 @@ with tab1:
                 del st.session_state['train_original']
                 st.rerun()
 
-        # --- הגרף המאוחד: עצימות משוקללת, מגמה ונקודות ---
+        # --- הגרף המאוחד והנקי (Layered Zones) ---
         st.divider()
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
             import plotly.graph_objects as go
-            
+            import numpy as np
+
             df_chart = df_all.copy()
-            # מציאת עמודת הלחץ (בדרך כלל הרביעית)
-            stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'StressLevel'
-            
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
-            df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
-            df_chart['StressLevel'] = pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3)
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            # --- חישוב מדד עצימות משוקלל ---
-            df_chart['Weighted_Duration'] = df_chart['Duration'] * (df_chart['StressLevel'] / 3.0)
+            # חישוב עצימות משוקללת (זמן * לחץ / 3)
+            df_chart['Weighted_Duration'] = df_chart['Duration'] * (df_chart[stress_col] / 3.0)
             
             daily = df_chart.groupby('Date')['Weighted_Duration'].sum().reset_index()
             daily.set_index('Date', inplace=True)
@@ -272,86 +263,70 @@ with tab1:
             daily['Intensity'] = daily['Weighted_Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
             daily = daily.reset_index()
 
-            # --- חישוב טווחי עצימות מעודכנים ---
-            q33 = daily['Intensity'].quantile(0.33) # שליש תחתון
-            q90 = daily['Intensity'].quantile(0.90) # עשירון עליון
-            max_val = daily['Intensity'].max()
-            top_bound = max_val * 1.1 if max_val > 0 else 1
+            # חישוב אחוזונים לטובת אזורי הצבע
+            q33 = daily['Intensity'].quantile(0.33) # שליש תחתון (כחול)
+            q90 = daily['Intensity'].quantile(0.90) # 10% עליונים (אדום)
 
-            # --- בניית הגרף המאוחד ---
             fig = go.Figure()
 
-            # רקעי צבע (Zones) - הפעם בשקיפות גבוהה מאוד כדי שהפוקוס יהיה על הקו
-            fig.add_hrect(y0=0, y1=q33, line_width=0, fillcolor="#2196F3", opacity=0.08, 
-                          annotation_text="🔵 שימור / עומס נמוך", annotation_position="top left")
-            fig.add_hrect(y0=q33, y1=q90, line_width=0, fillcolor="#4CAF50", opacity=0.08, 
-                          annotation_text="🟢 טווח עבודה אידיאלי", annotation_position="top left")
-            fig.add_hrect(y0=q90, y1=top_bound, line_width=0, fillcolor="#F44336", opacity=0.08, 
-                          annotation_text="🔴 עצימות גבוהה", annotation_position="top left")
-
-            # 1. שכבת העצימות - קו מחליף צבע עם שטח מילוי
-            # המילוי (fill) צבוע באפור נייטרלי כדי לא להתנגש עם צבע הקו המשתנה
+            # שכבה 1: המילוי האדום (הבסיס לכל הגרף)
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=daily['Intensity'],
-                fill='tozeroy',
-                fillcolor='rgba(200, 200, 200, 0.1)',
-                mode='lines+markers',
-                name='עצימות משוקללת',
-                # הקו עצמו מחליף צבע על ידי שימוש ב-marker color scale
-                line=dict(width=4, shape='spline', color='#888888'), 
-                marker=dict(
-                    size=8,
-                    color=daily['Intensity'],
-                    colorscale=[[0, "#2196F3"], [0.33, "#4CAF50"], [0.9, "#F44336"], [1, "#B71C1C"]],
-                    cmin=0, cmax=max_val,
-                    line=dict(width=1, color='white')
-                ),
+                fill='tozeroy', fillcolor='rgba(244, 67, 54, 0.15)', # אדום שקוף
+                mode='none', shape='spline', showlegend=False, hoverinfo='skip'
+            ))
+
+            # שכבה 2: המילוי הירוק (מוגבל עד רף ה-90%)
+            y_green = np.minimum(daily['Intensity'], q90)
+            fig.add_trace(go.Scatter(
+                x=daily['Date'], y=y_green,
+                fill='tozeroy', fillcolor='rgba(76, 175, 80, 0.15)', # ירוק שקוף
+                mode='none', shape='spline', showlegend=False, hoverinfo='skip'
+            ))
+
+            # שכבה 3: המילוי הכחול (מוגבל עד רף השליש התחתון)
+            y_blue = np.minimum(daily['Intensity'], q33)
+            fig.add_trace(go.Scatter(
+                x=daily['Date'], y=y_blue,
+                fill='tozeroy', fillcolor='rgba(33, 150, 243, 0.15)', # כחול שקוף
+                mode='none', shape='spline', showlegend=False, hoverinfo='skip'
+            ))
+
+            # שכבה 4: קו העצימות עצמו (ללא נקודות, חלק וכהה)
+            fig.add_trace(go.Scatter(
+                x=daily['Date'], y=daily['Intensity'],
+                mode='lines',
+                line=dict(color='#444444', width=3, shape='spline'),
+                name='עצימות משוקללת (7 ימים)',
                 hovertemplate="עומס מורגש: %{y:.2f}<extra></extra>"
             ))
 
-            # 2. קו מגמה (רק אימונים משמעותיים)
-            df_line = df_chart[(df_chart['Duration'] > 0.5) | (df_chart['StressLevel'] >= 4)]
-            fig.add_trace(go.Scatter(
-                x=df_line['Date'], y=df_line['Duration'],
-                mode='lines',
-                name='מגמת שיא',
-                line=dict(color='rgba(100, 100, 100, 0.4)', width=2, dash='dot'),
-                hovertemplate="מגמה: %{y} שעות<extra></extra>"
-            ))
-
-            # 3. נקודות האימון (צבע לפי לחץ)
+            # שכבה 5: נקודות האימון הבודדות (כדי לראות את הנתונים הגולמיים מעל המגמה)
             fig.add_trace(go.Scatter(
                 x=df_chart['Date'], y=df_chart['Duration'],
                 mode='markers',
-                name='אימונים בודדים',
+                name='אימונים',
                 marker=dict(
-                    size=10,
-                    color=df_chart['StressLevel'],
+                    size=10, color=df_chart[stress_col],
                     colorscale=[[0, "#4CAF50"], [0.5, "#FFC107"], [1.0, "#FF5252"]],
-                    cmin=1, cmax=5,
-                    line=dict(width=1, color='white')
+                    cmin=1, cmax=5, line=dict(width=1, color='white')
                 ),
-                customdata=df_chart['StressLevel'],
+                customdata=df_chart[stress_col],
                 hovertemplate="<b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
             ))
 
-            # עיצוב סופי
             fig.update_layout(
-                title="🐕 ניתוח עומס והתקדמות של מייפל",
-                yaxis_title="שעות משוקללות / זמן",
+                title="🐕 ניתוח עומס משולב של מייפל",
+                yaxis_title="שעות / מדד עומס",
                 hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 margin=dict(l=0, r=0, t=60, b=0),
                 height=500
             )
             fig.update_xaxes(dtick="D1", tickformat="%d/%m")
-            
             st.plotly_chart(fig, use_container_width=True)
             
             st.link_button("פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True)
-
-        else:
-            st.info("אין מספיק נתונים להצגת הגרף המאוחד.")
 
 # --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
