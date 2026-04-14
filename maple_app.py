@@ -289,17 +289,17 @@ with tab1:
             daily_duration.set_index('Date', inplace=True)
             daily_duration = daily_duration.resample('D').sum().fillna(0)
             
-            # חישוב האנרגיה: סכום השעות המצטבר בכל חלון של 7 ימים
-            daily_duration['7_Day_Energy'] = daily_duration['Duration'].rolling(window=7, min_periods=1).sum()
+            # חישוב האנרגיה: סכום השעות המצטבר בכל חלון של 3 ימים
+            daily_duration['3_Day_Energy'] = daily_duration['Duration'].rolling(window=3, min_periods=1).sum()
             daily_duration = daily_duration.reset_index()
             
             # ציור גרף שטח (Area) שנותן תחושה של "מד מאמץ" מצטבר
             fig_energy = px.area(daily_duration, x='Date', y='7_Day_Energy',
-                                 title="🔋 'אנרגיית' השבוע (סך שעות אימון מצטבר לכל 7 ימים)",
-                                 labels={'Date':'', '7_Day_Energy':'שעות אימון ב-7 ימים'})
+                                 title="🔋 'אנרגיית' השבוע (סך שעות אימון מצטבר לכל 3 ימים)",
+                                 labels={'Date':'', '3_Day_Energy':'שעות אימון ב-3 ימים'})
             
             # צבע סגול/כחול זורם שמראה את המאמץ השבועי
-            fig_energy.update_traces(line_color='#673AB7', fillcolor='rgba(103, 58, 183, 0.3)', mode='lines+markers')
+            fig_energy.update_traces(line_color='#673AB7', fillcolor='rgba(103, 58, 183, 0.2)', mode='lines+markers')
             fig_energy.update_xaxes(dtick="D1", tickformat="%d/%m")
             
             st.plotly_chart(fig_energy, use_container_width=True)
