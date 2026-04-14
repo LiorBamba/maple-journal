@@ -243,22 +243,20 @@ with tab1:
                 del st.session_state['train_original']
                 st.rerun()
 
-        # --- הגרף המאוחד: עצימות משוקללת, מגמה ונקודות ---
+        # --- הגרף המאוחד והנקי (Layered Zones) ---
         st.divider()
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
             import plotly.graph_objects as go
-            
+            import numpy as np
+
             df_chart = df_all.copy()
-            # מציאת עמודת הלחץ (בדרך כלל הרביעית)
-            stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'StressLevel'
-            
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
-            df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
-            df_chart['StressLevel'] = pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3)
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            # --- חישוב מדד עצימות משוקלל ---
-            df_chart['Weighted_Duration'] = df_chart['Duration'] * (df_chart['StressLevel'] / 3.0)
+            stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'StressLevel'
+            
+            # חישוב עצימות משוקללת (זמן * לחץ / 3)
+            df_chart['Weighted_Duration'] = df_chart['Duration'] * (pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3) / 3.0)
             
             daily = df_chart.groupby('Date')['Weighted_Duration'].sum().reset_index()
             daily.set_index('Date', inplace=True)
@@ -272,45 +270,55 @@ with tab1:
             daily['Intensity'] = daily['Weighted_Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
             daily = daily.reset_index()
 
-            # --- חישוב טווחי עצימות מעודכנים ---
+            # --- חישוב אחוזונים ובניית שכבות הגובה ---
             q33 = daily['Intensity'].quantile(0.33) # שליש תחתון
             q90 = daily['Intensity'].quantile(0.90) # עשירון עליון
-            max_val = daily['Intensity'].max()
-            top_bound = max_val * 1.1 if max_val > 0 else 1
+            
+            y_actual = daily['Intensity']
+            y_blue = np.minimum(y_actual, q33)          # קו המקסימום של השכבה הכחולה
+            y_green = np.minimum(y_actual, q90)         # קו המקסימום של השכבה הירוקה
 
-            # --- בניית הגרף המאוחד ---
             fig = go.Figure()
 
-            # רקעי צבע (Zones) - הפעם בשקיפות גבוהה מאוד כדי שהפוקוס יהיה על הקו
-            fig.add_hrect(y0=0, y1=q33, line_width=0, fillcolor="#2196F3", opacity=0.08, 
-                          annotation_text="🔵 שימור / עומס נמוך", annotation_position="top left")
-            fig.add_hrect(y0=q33, y1=q90, line_width=0, fillcolor="#4CAF50", opacity=0.08, 
-                          annotation_text="🟢 טווח עבודה אידיאלי", annotation_position="top left")
-            fig.add_hrect(y0=q90, y1=top_bound, line_width=0, fillcolor="#F44336", opacity=0.08, 
-                          annotation_text="🔴 עצימות גבוהה", annotation_position="top left")
+            # --- בניית השטח מתחת לגרף בשכבות ---
+            
+            # שכבה 1: כחול (מ-0 ועד קו השליש התחתון, אבל נחתך היכן שהגרף נמוך יותר)
+            fig.add_trace(go.Scatter(
+                x=daily['Date'], y=y_blue,
+                fill='tozeroy', fillcolor='rgba(33, 150, 243, 0.3)', # כחול
+                mode='lines', line=dict(width=0, shape='spline'),
+                showlegend=False, hoverinfo='skip'
+            ))
 
-            # 1. שכבת העצימות - קו מחליף צבע עם שטח מילוי
-            # המילוי (fill) צבוע באפור נייטרלי כדי לא להתנגש עם צבע הקו המשתנה
+            # שכבה 2: ירוק (ממלא מהקו הכחול ועד גבול ה-90%, נחתך היכן שהגרף נמוך יותר)
+            fig.add_trace(go.Scatter(
+                x=daily['Date'], y=y_green,
+                fill='tonexty', fillcolor='rgba(76, 175, 80, 0.3)',  # ירוק
+                mode='lines', line=dict(width=0, shape='spline'),
+                showlegend=False, hoverinfo='skip'
+            ))
+
+            # שכבה 3: אדום (ממלא מהקו הירוק ועד לפסגת הגרף האמיתית)
+            fig.add_trace(go.Scatter(
+                x=daily['Date'], y=y_actual,
+                fill='tonexty', fillcolor='rgba(244, 67, 54, 0.3)',  # אדום
+                mode='lines', line=dict(width=0, shape='spline'),
+                showlegend=False, hoverinfo='skip'
+            ))
+
+            # --- הקוים והנקודות עצמם ---
+
+            # שכבה 4: קו העצימות המוחלק (ללא נקודות) רוכב בדיוק מעל הצבעים
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=daily['Intensity'],
-                fill='tozeroy',
-                fillcolor='rgba(200, 200, 200, 0.1)',
-                mode='lines+markers',
+                mode='lines',
+                line=dict(color='#444444', width=3, shape='spline'), # צבע אפור כהה נייטרלי לקו
                 name='עצימות משוקללת',
-                # הקו עצמו מחליף צבע על ידי שימוש ב-marker color scale
-                line=dict(width=4, shape='spline', color='#888888'), 
-                marker=dict(
-                    size=8,
-                    color=daily['Intensity'],
-                    colorscale=[[0, "#2196F3"], [0.33, "#4CAF50"], [0.9, "#F44336"], [1, "#B71C1C"]],
-                    cmin=0, cmax=max_val,
-                    line=dict(width=1, color='white')
-                ),
                 hovertemplate="עומס מורגש: %{y:.2f}<extra></extra>"
             ))
 
-            # 2. קו מגמה (רק אימונים משמעותיים)
-            df_line = df_chart[(df_chart['Duration'] > 0.5) | (df_chart['StressLevel'] >= 4)]
+            # שכבה 5: קו מגמת השיא של האימונים הבודדים 
+            df_line = df_chart[(df_chart['Duration'] > 0.5) | (pd.to_numeric(df_chart[stress_col], errors='coerce') >= 4)]
             fig.add_trace(go.Scatter(
                 x=df_line['Date'], y=df_line['Duration'],
                 mode='lines',
@@ -319,33 +327,31 @@ with tab1:
                 hovertemplate="מגמה: %{y} שעות<extra></extra>"
             ))
 
-            # 3. נקודות האימון (צבע לפי לחץ)
+            # שכבה 6: הנקודות של האימונים הגולמיים (צבע לפי לחץ)
             fig.add_trace(go.Scatter(
                 x=df_chart['Date'], y=df_chart['Duration'],
                 mode='markers',
                 name='אימונים בודדים',
                 marker=dict(
-                    size=10,
-                    color=df_chart['StressLevel'],
+                    size=10, 
+                    color=pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3),
                     colorscale=[[0, "#4CAF50"], [0.5, "#FFC107"], [1.0, "#FF5252"]],
-                    cmin=1, cmax=5,
-                    line=dict(width=1, color='white')
+                    cmin=1, cmax=5, line=dict(width=1, color='white')
                 ),
-                customdata=df_chart['StressLevel'],
+                customdata=pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3),
                 hovertemplate="<b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
             ))
 
             # עיצוב סופי
             fig.update_layout(
-                title="🐕 ניתוח עומס והתקדמות של מייפל",
-                yaxis_title="שעות משוקללות / זמן",
+                title="🐕 ניתוח עומס משולב של מייפל",
+                yaxis_title="שעות / מדד עומס",
                 hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 margin=dict(l=0, r=0, t=60, b=0),
                 height=500
             )
             fig.update_xaxes(dtick="D1", tickformat="%d/%m")
-            
             st.plotly_chart(fig, use_container_width=True)
             
             st.link_button("פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True)
