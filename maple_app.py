@@ -173,104 +173,83 @@ with tab1:
     st.header("תיעוד חשיפה ונטישות")
     
 # --- טופס הזנה חכם: חישוב זמנים אוטומטי ---
+    # --- טופס הזנה פשוט ומותאם לנייד ---
     st.subheader("📝 הוספת אימון חדש")
     
-    with st.form("smart_train_form", clear_on_submit=True):
-        # משיכת הזמן הנוכחי
+    with st.form("simple_train_form", clear_on_submit=True):
         now = datetime.now(IL_TZ)
         
-        # --- אזור הזמנים ---
-        st.write("**מתי זה קרה?**")
-        # יצירת עמודות מימין לשמאל: תאריך -> התחלה -> סיום
-        c1, c2, c3 = st.columns([1, 1, 1.5]) 
-        
-        with c3:
-            d_date = st.date_input("תאריך", now.date())
-            
-        with c2:
-            # שעת התחלה: ברירת מחדל שעה אחת אחורה
-            default_start = (now - timedelta(hours=1)).time()
-            start_time = st.time_input("⏰ התחלה", value=default_start)
-            
+        # שורה ראשונה: תאריך ושעת התחלה
+        c1, c2 = st.columns(2)
         with c1:
-            # שעת סיום: ברירת מחדל עכשיו
-            end_time = st.time_input("🏁 סיום", value=now.time())
+            d_date = st.date_input("📅 תאריך", now.date())
+        with c2:
+            # שעת התחלה פשוטה (HH:MM)
+            default_start = (now - timedelta(hours=1)).time()
+            start_time = st.time_input("⏰ שעת התחלה", value=default_start)
+
+        # שורה שנייה: משך זמן עם כפתורי פלוס/מינוס
+        # ה-step=0.25 מאפשר לקפוץ ברבעי שעות בקליק
+        d_dur = st.number_input("⏳ משך זמן (בשעות)", min_value=0.0, value=1.0, step=0.25, format="%.2f")
         
-        # -- חישוב אוטומטי מאחורי הקלעים --
-        # משתמשים בתאריך כדי לחשב נכון גם אם האימון חצה את חצות
-        dt_start = datetime.combine(d_date, start_time)
-        dt_end = datetime.combine(d_date, end_time)
+        # שורה שלישית: מדד לחץ (סליידר הוא הכי נוח למגע אצבע)
+        d_stress = st.select_slider("😰 מדד לחץ (1-רגועה, 5-פאניקה)", options=[1, 2, 3, 4, 5], value=3)
         
-        if dt_end < dt_start:
-            dt_end += timedelta(days=1)
-            
-        # חישוב משך הזמן בשעות עשרוניות
-        calc_duration = (dt_end - dt_start).total_seconds() / 3600.0
+        # הערות
+        d_note = st.text_area("📝 הערות")
         
-        # הצגת הזמן המחושב למשתמש כאינדיקציה
-        st.info(f"⏳  חושב משך אימון של: **{calc_duration:.2f} שעות**")
-                
-        # --- אזור המדדים והערות ---
-        st.write("**איך היה?**")
-        # select_slider הרבה יותר נוח בנייד מאשר number_input
-        d_stress = st.select_slider("מדד לחץ (1 - רגועה לחלוטין, 5 - פאניקה)", options=[1, 2, 3, 4, 5], value=3)
-        # text_area מאפשר לכתוב כמה שורות בנוחות מהטלפון
-        d_note = st.text_area("📝 הערות)")
-        
-        # כפתור רחב שנוח ללחוץ עליו בנייד
+        # כפתור שמירה רחב
         if st.form_submit_button("שמור אימון 💾", use_container_width=True):
-            # אנחנו שומרים את הנתונים בדיוק בפורמט שהטבלה שלך מצפה לקבל
-            row = [str(d_date), str(start_time)[:5], round(calc_duration, 2), d_stress, d_note]
+            # עיצוב השעה לפורמט קריא של HH:MM
+            formatted_time = start_time.strftime("%H:%M")
+            row = [str(d_date), formatted_time, round(d_dur, 2), d_stress, d_note]
+            
             if append_row("Training", row):
-                st.success("האימון נשמר בהצלחה!")
+                st.success("האימון נשמר!")
                 st.rerun()
 
     st.divider()
     
-    st.subheader("✏️ עריכת היסטוריה (10 אחרונים)")
-    
-    # 1. טעינת כל הנתונים
-    df_all = get_data("Training")
-    
-    if not df_all.empty:
-        # --- שדרוג UI: ניקוי הנתונים לפני התצוגה ---
-        # חיתוך המילי-שניות מעמודת השעה (נשאיר רק HH:MM)
-        if 'Time' in df_all.columns:
-            df_all['Time'] = df_all['Time'].astype(str).apply(lambda x: x[:5] if len(x) > 5 else x)
+    # --- חלק ג: עריכת היסטוריה בתוך תפריט מתקפל ---
+    # ה-expander יהיה סגור בברירת מחדל (expanded=False)
+    with st.expander("✏️ לצפייה ועריכת היסטוריית אימונים", expanded=False):
         
-        # המרה למספרים כדי שהעורך ייתן לנו חיצים קטנים לעריכה (Steppers)
-        if 'Duration' in df_all.columns:
+        df_all = get_data("Training")
+        
+        if not df_all.empty:
+            # ניקוי פורמט השעה לתצוגה
+            if 'Time' in df_all.columns:
+                df_all['Time'] = df_all['Time'].astype(str).apply(lambda x: x[:5] if len(x) > 5 else x)
+            
+            # הכנת הנתונים לעריכה
+            stress_col = 'StressLevel' if 'StressLevel' in df_all.columns else 'Stress'
             df_all['Duration'] = pd.to_numeric(df_all['Duration'], errors='coerce')
-        if 'StressLevel' in df_all.columns:
-            df_all['StressLevel'] = pd.to_numeric(df_all['StressLevel'], errors='coerce')
+            df_all[stress_col] = pd.to_numeric(df_all[stress_col], errors='coerce').fillna(3)
 
-        # 2. חיתוך: לוקחים רק את ה-10 האחרונים
-        df_tail = df_all.tail(10)
+            df_tail = df_all.tail(10)
+            if 'train_original' not in st.session_state:
+                 st.session_state['train_original'] = df_tail.copy()
 
-        # 3. שמירת המצב המקורי בזיכרון להשוואה
-        if 'train_original' not in st.session_state:
-             st.session_state['train_original'] = df_tail.copy()
-
-        # 4. הצגת העורך המעוצב!
-        edited_df = st.data_editor(
-            df_tail, 
-            num_rows="fixed", 
-            use_container_width=True, 
-            hide_index=True, # מעלים את העמודה של מספרי השורות (7, 8, 9...)
-            key="train_editor",
-            column_config={
-                "Date": st.column_config.Column("📅 תאריך"),
-                "Time": st.column_config.Column("⏰ שעה"),
-                "Duration": st.column_config.NumberColumn("⏳ זמן (שעות)", format="%.2f", min_value=0.0, step=0.25),
-                "StressLevel": st.column_config.NumberColumn("😰 מדד לחץ", min_value=1, max_value=5, step=1),
-                "Notes": st.column_config.TextColumn("📝 הערות")
-            }
-        )
-        
-        if st.button("שמור שינויים בטבלה 💾", key="save_tail_btn"):
-            if smart_update("Training", st.session_state['train_original'], edited_df):
-                del st.session_state['train_original']
-                st.rerun()
+            # הצגת הטבלה
+            edited_df = st.data_editor(
+                df_tail, 
+                num_rows="fixed", 
+                use_container_width=True, 
+                hide_index=True, 
+                key="train_editor",
+                column_config={
+                    "Date": st.column_config.Column("📅 תאריך"),
+                    "Time": st.column_config.Column("⏰ שעה"),
+                    "Duration": st.column_config.NumberColumn("⏳ זמן (שעות)", format="%.2f", step=0.25),
+                    stress_col: st.column_config.NumberColumn("😰 מדד לחץ", min_value=1, max_value=5, step=1),
+                    "Notes": st.column_config.TextColumn("📝 הערות")
+                }
+            )
+            
+            if st.button("שמור שינויים בטבלה 💾", key="save_tail_btn", use_container_width=True):
+                if smart_update("Training", st.session_state['train_original'], edited_df):
+                    del st.session_state['train_original']
+                    st.rerun()
 
         # --- הגרף המאוחד: גרסה מתוקנת עם זיהוי שעות מדויק ---
         st.divider()
