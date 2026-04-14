@@ -172,60 +172,60 @@ tab1, tab2, tab3 = st.tabs(["🏃 הישארות לבד", "🦴 האכלות", "
 with tab1:
     st.header("תיעוד חשיפה ונטישות")
     
-    # --- טופס הזנה חכם: חישוב זמנים אוטומטי ---
-        st.subheader("📝 הוספת אימון חדש")
+# --- טופס הזנה חכם: חישוב זמנים אוטומטי ---
+    st.subheader("📝 הוספת אימון חדש")
+    
+    with st.form("smart_train_form", clear_on_submit=True):
+        # משיכת הזמן הנוכחי
+        now = datetime.now(IL_TZ)
         
-        with st.form("smart_train_form", clear_on_submit=True):
-            # משיכת הזמן הנוכחי
-            now = datetime.now(IL_TZ)
+        # --- אזור הזמנים ---
+        st.write("**מתי זה קרה?**")
+        # יצירת עמודות מימין לשמאל: תאריך -> התחלה -> סיום
+        c1, c2, c3 = st.columns([1, 1, 1.5]) 
+        
+        with c3:
+            d_date = st.date_input("תאריך", now.date())
             
-            # --- אזור הזמנים ---
-            st.write("**מתי זה קרה?**")
-            # יצירת עמודות מימין לשמאל: תאריך -> התחלה -> סיום
-            c1, c2, c3 = st.columns([1, 1, 1.5]) 
+        with c2:
+            # שעת התחלה: ברירת מחדל שעה אחת אחורה
+            default_start = (now - timedelta(hours=1)).time()
+            start_time = st.time_input("⏰ התחלה", value=default_start)
             
-            with c3:
-                d_date = st.date_input("תאריך", now.date())
-                
-            with c2:
-                # שעת התחלה: ברירת מחדל שעה אחת אחורה
-                default_start = (now - timedelta(hours=1)).time()
-                start_time = st.time_input("⏰ התחלה", value=default_start)
-                
-            with c1:
-                # שעת סיום: ברירת מחדל עכשיו
-                end_time = st.time_input("🏁 סיום", value=now.time())
+        with c1:
+            # שעת סיום: ברירת מחדל עכשיו
+            end_time = st.time_input("🏁 סיום", value=now.time())
+        
+        # -- חישוב אוטומטי מאחורי הקלעים --
+        # משתמשים בתאריך כדי לחשב נכון גם אם האימון חצה את חצות
+        dt_start = datetime.combine(d_date, start_time)
+        dt_end = datetime.combine(d_date, end_time)
+        
+        if dt_end < dt_start:
+            dt_end += timedelta(days=1)
             
-            # -- חישוב אוטומטי מאחורי הקלעים --
-            # משתמשים בתאריך כדי לחשב נכון גם אם האימון חצה את חצות
-            dt_start = datetime.combine(d_date, start_time)
-            dt_end = datetime.combine(d_date, end_time)
-            
-            if dt_end < dt_start:
-                dt_end += timedelta(days=1)
-                
-            # חישוב משך הזמן בשעות עשרוניות
-            calc_duration = (dt_end - dt_start).total_seconds() / 3600.0
-            
-            # הצגת הזמן המחושב למשתמש כאינדיקציה
-            st.info(f"⏳ האפליקציה חישבה משך אימון של: **{calc_duration:.2f} שעות**")
-            
-            st.divider()
-            
-            # --- אזור המדדים והערות ---
-            st.write("**איך היה?**")
-            # select_slider הרבה יותר נוח בנייד מאשר number_input
-            d_stress = st.select_slider("מדד לחץ (1 - רגועה לחלוטין, 5 - פאניקה)", options=[1, 2, 3, 4, 5], value=3)
-            # text_area מאפשר לכתוב כמה שורות בנוחות מהטלפון
-            d_note = st.text_area("📝 הערות (מה היא עשתה? איך נפרדתם?)")
-            
-            # כפתור רחב שנוח ללחוץ עליו בנייד
-            if st.form_submit_button("שמור אימון 💾", use_container_width=True):
-                # אנחנו שומרים את הנתונים בדיוק בפורמט שהטבלה שלך מצפה לקבל
-                row = [str(d_date), str(start_time)[:5], round(calc_duration, 2), d_stress, d_note]
-                if append_row("Training", row):
-                    st.success("האימון נשמר בהצלחה!")
-                    st.rerun()
+        # חישוב משך הזמן בשעות עשרוניות
+        calc_duration = (dt_end - dt_start).total_seconds() / 3600.0
+        
+        # הצגת הזמן המחושב למשתמש כאינדיקציה
+        st.info(f"⏳ האפליקציה חישבה משך אימון של: **{calc_duration:.2f} שעות**")
+        
+        st.divider()
+        
+        # --- אזור המדדים והערות ---
+        st.write("**איך היה?**")
+        # select_slider הרבה יותר נוח בנייד מאשר number_input
+        d_stress = st.select_slider("מדד לחץ (1 - רגועה לחלוטין, 5 - פאניקה)", options=[1, 2, 3, 4, 5], value=3)
+        # text_area מאפשר לכתוב כמה שורות בנוחות מהטלפון
+        d_note = st.text_area("📝 הערות (מה היא עשתה? איך נפרדתם?)")
+        
+        # כפתור רחב שנוח ללחוץ עליו בנייד
+        if st.form_submit_button("שמור אימון 💾", use_container_width=True):
+            # אנחנו שומרים את הנתונים בדיוק בפורמט שהטבלה שלך מצפה לקבל
+            row = [str(d_date), str(start_time)[:5], round(calc_duration, 2), d_stress, d_note]
+            if append_row("Training", row):
+                st.success("האימון נשמר בהצלחה!")
+                st.rerun()
 
     st.divider()
     
