@@ -243,7 +243,7 @@ with tab1:
                 del st.session_state['train_original']
                 st.rerun()
 
-        # --- הגרף המאוחד: פתרון כפל אימונים ביום + קו מגמה משוחזר ---
+        # --- הגרף המאוחד: גרסה מתוקנת וחסונה ---
         st.divider()
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
             import plotly.graph_objects as go
@@ -251,17 +251,21 @@ with tab1:
 
             df_chart = df_all.copy()
             
-            # יצירת ציר זמן מדויק (תאריך + שעה) כדי להפריד אימונים באותו יום
-            df_chart['FullDate'] = pd.to_datetime(df_chart['Date'].astype(str) + ' ' + df_chart['Time'].astype(str), errors='coerce')
+            # 1. עיבוד תאריכים בטוח (הסיבה שהגרף נחתך קודם)
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
             
-            # ניקוי וסידור
-            df_chart = df_chart.dropna(subset=['FullDate', 'Duration']).sort_values('FullDate')
+            # אם אין שעה בגיליון, נניח שזה 12:00 כדי לא לשבור את הקוד
+            time_str = df_chart.get('Time', '12:00').astype(str).str.replace('nan', '12:00', case=False)
+            df_chart['FullDate'] = pd.to_datetime(df_chart['Date'].dt.strftime('%Y-%m-%d') + ' ' + time_str, errors='coerce')
+            # גיבוי למקרה קיצון שבו החיבור נכשל
+            df_chart['FullDate'] = df_chart['FullDate'].fillna(df_chart['Date'])
+            
+            df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('FullDate')
             
             stress_col = 'StressLevel' if 'StressLevel' in df_all.columns else 'Stress'
             df_chart['Weighted_Duration'] = df_chart['Duration'] * (pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3) / 3.0)
             
-            # --- חישוב עצימות (סיכום יומי) ---
+            # --- חישוב עצימות ---
             daily = df_chart.groupby('Date')['Weighted_Duration'].sum().reset_index()
             daily.set_index('Date', inplace=True)
             daily = daily.resample('D').sum().fillna(0)
@@ -274,7 +278,7 @@ with tab1:
             daily['Intensity'] = daily['Weighted_Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
             daily = daily.reset_index()
 
-            # חישוב אחוזונים חכם (רק ימים פעילים)
+            # --- חישוב אחוזונים חכם ---
             active_intensity = daily['Intensity'][daily['Intensity'] > 0.1]
             if not active_intensity.empty:
                 q33 = active_intensity.quantile(0.33)
@@ -288,35 +292,35 @@ with tab1:
 
             fig = go.Figure()
 
-            # 1. שכבות הצבע (רקע העומס) - נשארות יומיות
+            # --- שכבות הצבע תחת הגרף בלבד (הוסר ה-Spline שגרם לעיוותים) ---
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=y_blue,
-                fill='tozeroy', fillcolor='rgba(33, 150, 243, 0.35)', 
-                mode='lines', line=dict(width=0, shape='spline'),
+                fill='tozeroy', fillcolor='rgba(33, 150, 243, 0.4)',  # כחול
+                mode='lines', line=dict(width=0),
                 showlegend=False, hoverinfo='skip'
             ))
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=y_green,
-                fill='tonexty', fillcolor='rgba(76, 175, 80, 0.35)',  
-                mode='lines', line=dict(width=0, shape='spline'),
+                fill='tonexty', fillcolor='rgba(76, 175, 80, 0.4)',   # ירוק
+                mode='lines', line=dict(width=0),
                 showlegend=False, hoverinfo='skip'
             ))
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=y_actual,
-                fill='tonexty', fillcolor='rgba(244, 67, 54, 0.35)',  
-                mode='lines', line=dict(width=0, shape='spline'),
+                fill='tonexty', fillcolor='rgba(244, 67, 54, 0.4)',   # אדום
+                mode='lines', line=dict(width=0),
                 showlegend=False, hoverinfo='skip'
             ))
 
-            # 2. קו העצימות המרכזי
+            # --- קו העצימות המרכזי (רוכב על הצבעים) ---
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=daily['Intensity'],
                 mode='lines',
-                line=dict(color='#444444', width=3, shape='spline'), 
+                line=dict(color='#333333', width=3), 
                 name='עצימות משוקללת'
             ))
 
-            # 3. שחזור קו המגמה (הקו המקוקו) - משתמש ב-FullDate כדי לדייק
+            # --- קו מגמה מקוקו בין שיאים ---
             df_line = df_chart[(df_chart['Duration'] > 0.5) | (pd.to_numeric(df_chart[stress_col], errors='coerce') >= 4)]
             if not df_line.empty:
                 fig.add_trace(go.Scatter(
@@ -327,7 +331,7 @@ with tab1:
                     hovertemplate="מגמת שיא: %{y} שעות<extra></extra>"
                 ))
 
-            # 4. נקודות האימון הבודדות - משתמשות ב-FullDate למניעת חפיפה
+            # --- נקודות האימונים (מופרדות לפי FullDate) ---
             fig.add_trace(go.Scatter(
                 x=df_chart['FullDate'], y=df_chart['Duration'],
                 mode='markers',
@@ -342,10 +346,11 @@ with tab1:
                 hovertemplate="<b>תאריך ושעה:</b> %{x|%d/%m %H:%M}<br><b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
             ))
 
+            # --- עיצוב ---
             fig.update_layout(
                 title="🐕 ניתוח עומס והתקדמות של מייפל",
                 yaxis_title="עומס משוקלל / זמן",
-                hovermode="closest", # שינוי ל-closest כדי להקל על בחירת נקודה ספציפית
+                hovermode="closest", # כדי למנוע קפיצות כשיש שני אימונים באותו יום
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 margin=dict(l=0, r=0, t=60, b=50),
                 height=500
@@ -361,7 +366,7 @@ with tab1:
             st.link_button("פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True)
 
         else:
-            st.info("אין מספיק נתונים להצגת הגרף.")
+            st.info("אין מספיק נתונים להצגת הגרף המאוחד.")
 
 # --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
