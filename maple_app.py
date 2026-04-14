@@ -243,42 +243,22 @@ with tab1:
                 del st.session_state['train_original']
                 st.rerun()
 
-        # --- הגרף המרכזי: קו מגמה משמעותי + כל הנקודות ---
-        # --- הגרפים של טאב 1 ---
-        st.divider()
-        if 'Date' in df_all.columns and 'Duration' in df_all.columns:
-            df_chart = df_all.copy()
-            
-            # --- תיקון שליפת מדד הלחץ ---
-            # מציאת עמודת הלחץ לפי המיקום שלה (העמודה הרביעית) כדי לעקוף בעיות של שמות עמודות בעברית/אנגלית
-            stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'Stress'
-            
-            # המרת נתונים
-            df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
-            df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
-            # קריאת מדד הלחץ האמיתי מהגיליון
-            df_chart['Stress'] = pd.to_numeric(df_chart[stress_col], errors='coerce')
-            
-            # רק אם באמת חסר ערך בשורה, נשים 3 כברירת מחדל
-            df_chart['Stress'] = df_chart['Stress'].fillna(3)
-            
-            df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
-            
-        # --- הגרף המאוחד: עצימות, מגמה ונקודות ---
+        # --- הגרף המאוחד: עצימות משוקללת, מגמה ונקודות ---
         st.divider()
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
             import plotly.graph_objects as go
             
             df_chart = df_all.copy()
-            stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'Stress'
+            # מציאת עמודת הלחץ (בדרך כלל הרביעית)
+            stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'StressLevel'
             
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
             df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
-            df_chart['Stress'] = pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3)
+            df_chart['StressLevel'] = pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3)
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
             # --- חישוב מדד עצימות משוקלל ---
-            df_chart['Weighted_Duration'] = df_chart['Duration'] * (df_chart['Stress'] / 3.0)
+            df_chart['Weighted_Duration'] = df_chart['Duration'] * (df_chart['StressLevel'] / 3.0)
             
             daily = df_chart.groupby('Date')['Weighted_Duration'].sum().reset_index()
             daily.set_index('Date', inplace=True)
@@ -292,78 +272,82 @@ with tab1:
             daily['Intensity'] = daily['Weighted_Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
             daily = daily.reset_index()
 
-            # --- חישוב טווחי עצימות (אזורי מאמץ לפי אחוזונים) ---
-            q20 = daily['Intensity'].quantile(0.20) # 2 עשירונים תחתונים
+            # --- חישוב טווחי עצימות מעודכנים ---
+            q33 = daily['Intensity'].quantile(0.33) # שליש תחתון
             q90 = daily['Intensity'].quantile(0.90) # עשירון עליון
-            max_intensity = daily['Intensity'].max()
-            top_bound = max_intensity * 1.2 if max_intensity > 0 else 1 # קצת אוויר למעלה
+            max_val = daily['Intensity'].max()
+            top_bound = max_val * 1.1 if max_val > 0 else 1
 
             # --- בניית הגרף המאוחד ---
             fig = go.Figure()
 
-            # רקעי צבע (Zones) כדי להראות את טווחי העצימות
-            fig.add_hrect(y0=0, y1=q20, line_width=0, fillcolor="#2196F3", opacity=0.15, 
-                          annotation_text="🔵 מעט מדי תרגול (20% תחתונים)", annotation_position="top left", annotation_font_color="#1565C0")
-            fig.add_hrect(y0=q20, y1=q90, line_width=0, fillcolor="#4CAF50", opacity=0.15, 
-                          annotation_text="🟢 עצימות אידיאלית", annotation_position="top left", annotation_font_color="#2E7D32")
-            fig.add_hrect(y0=q90, y1=top_bound, line_width=0, fillcolor="#F44336", opacity=0.15, 
-                          annotation_text="🔴 עומס יתר (עשירון עליון)", annotation_position="top left", annotation_font_color="#C62828")
+            # רקעי צבע (Zones) - הפעם בשקיפות גבוהה מאוד כדי שהפוקוס יהיה על הקו
+            fig.add_hrect(y0=0, y1=q33, line_width=0, fillcolor="#2196F3", opacity=0.08, 
+                          annotation_text="🔵 שימור / עומס נמוך", annotation_position="top left")
+            fig.add_hrect(y0=q33, y1=q90, line_width=0, fillcolor="#4CAF50", opacity=0.08, 
+                          annotation_text="🟢 טווח עבודה אידיאלי", annotation_position="top left")
+            fig.add_hrect(y0=q90, y1=top_bound, line_width=0, fillcolor="#F44336", opacity=0.08, 
+                          annotation_text="🔴 עצימות גבוהה", annotation_position="top left")
 
-            # 1. שכבת האנרגיה/עצימות (עם החלקה - Spline)
+            # 1. שכבת העצימות - קו מחליף צבע עם שטח מילוי
+            # המילוי (fill) צבוע באפור נייטרלי כדי לא להתנגש עם צבע הקו המשתנה
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=daily['Intensity'],
                 fill='tozeroy',
-                mode='lines',
-                name='עצימות (עומס מורגש)',
-                # shape='spline' זה מה שהופך את הקו למוחלק וזורם במקום זוויות חדות
-                line=dict(color='rgba(80, 80, 80, 0.8)', width=3, shape='spline'),
-                fillcolor='rgba(150, 150, 150, 0.1)',
+                fillcolor='rgba(200, 200, 200, 0.1)',
+                mode='lines+markers',
+                name='עצימות משוקללת',
+                # הקו עצמו מחליף צבע על ידי שימוש ב-marker color scale
+                line=dict(width=4, shape='spline', color='#888888'), 
+                marker=dict(
+                    size=8,
+                    color=daily['Intensity'],
+                    colorscale=[[0, "#2196F3"], [0.33, "#4CAF50"], [0.9, "#F44336"], [1, "#B71C1C"]],
+                    cmin=0, cmax=max_val,
+                    line=dict(width=1, color='white')
+                ),
                 hovertemplate="עומס מורגש: %{y:.2f}<extra></extra>"
             ))
 
             # 2. קו מגמה (רק אימונים משמעותיים)
-            df_line = df_chart[(df_chart['Duration'] > 0.5) | (df_chart['Stress'] >= 4)]
+            df_line = df_chart[(df_chart['Duration'] > 0.5) | (df_chart['StressLevel'] >= 4)]
             fig.add_trace(go.Scatter(
                 x=df_line['Date'], y=df_line['Duration'],
                 mode='lines',
-                name='קו מגמה',
-                line=dict(color='rgba(150, 150, 150, 0.6)', width=2, dash='dot'),
+                name='מגמת שיא',
+                line=dict(color='rgba(100, 100, 100, 0.4)', width=2, dash='dot'),
                 hovertemplate="מגמה: %{y} שעות<extra></extra>"
             ))
 
-            # 3. נקודות האימון (כל האימונים עם צבע לפי לחץ)
+            # 3. נקודות האימון (צבע לפי לחץ)
             fig.add_trace(go.Scatter(
                 x=df_chart['Date'], y=df_chart['Duration'],
                 mode='markers',
-                name='אימונים',
+                name='אימונים בודדים',
                 marker=dict(
-                    size=12,
-                    color=df_chart['Stress'],
+                    size=10,
+                    color=df_chart['StressLevel'],
                     colorscale=[[0, "#4CAF50"], [0.5, "#FFC107"], [1.0, "#FF5252"]],
                     cmin=1, cmax=5,
-                    showscale=True,
-                    colorbar=dict(title="מדד לחץ", x=1.05),
                     line=dict(width=1, color='white')
                 ),
-                customdata=df_chart['Stress'],
-                hovertemplate="<b>תאריך:</b> %{x}<br><b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
+                customdata=df_chart['StressLevel'],
+                hovertemplate="<b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
             ))
 
-            # עיצוב כללי
+            # עיצוב סופי
             fig.update_layout(
-                title="📊 ניתוח משולב: עומס, מגמה ותוצאות",
-                xaxis_title="",
-                yaxis_title="שעות / מדד עומס",
+                title="🐕 ניתוח עומס והתקדמות של מייפל",
+                yaxis_title="שעות משוקללות / זמן",
                 hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                margin=dict(l=0, r=0, t=50, b=0)
+                margin=dict(l=0, r=0, t=60, b=0),
+                height=500
             )
             fig.update_xaxes(dtick="D1", tickformat="%d/%m")
             
             st.plotly_chart(fig, use_container_width=True)
             
-            # כפתור קישור לגוגל שיטס
-            st.write("")
             st.link_button("פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True)
 
         else:
