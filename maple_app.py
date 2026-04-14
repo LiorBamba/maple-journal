@@ -172,29 +172,6 @@ tab1, tab2, tab3 = st.tabs(["🏃 הישארות לבד", "🦴 האכלות", "
 with tab1:
     st.header("תיעוד חשיפה ונטישות")
     
-# --- טופס הזנה מהירה המותאם לנייד ---
-    st.subheader("➕ הוספת אימון חדש")
-    with st.form("new_training_form", clear_on_submit=True):
-        # שימוש בעמודות מסדר את זה יפה גם במחשב וגם בנייד
-        c1, c2 = st.columns(2)
-        with c1:
-            new_date = st.date_input("תאריך")
-            new_time = st.time_input("שעה")
-        with c2:
-            # שימוש בכפתורי פלוס/מינוס נוחים
-            new_duration = st.number_input("משך זמן (שעות)", min_value=0.0, step=0.25, format="%.2f")
-            # סליידר הוא הפתרון הכי נוח לנייד עבור מדדים מ-1 עד 5
-            new_stress = st.slider("מדד לחץ", min_value=1, max_value=5, value=3)
-            
-        new_notes = st.text_area("הערות (אופציונלי)", placeholder="איך היא התנהגה?")
-            
-        # כפתור שמנצל את כל רוחב המסך כדי שיהיה קל ללחוץ עליו בנייד
-        submitted = st.form_submit_button("שמור אימון 💾", use_container_width=True)
-            
-        if submitted:
-            # כאן תיכנס הפונקציה שמוסיפה שורה חדשה לגוגל שיטס
-            st.success("האימון נשמר בהצלחה!")
-    
     # --- חלק א: הוספה חדשה ---
     with st.form("train_form", clear_on_submit=True):
         st.subheader("📝 הוספת חדש")
