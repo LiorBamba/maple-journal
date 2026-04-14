@@ -253,7 +253,8 @@ with tab1:
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'StressLevel'
+            # זיהוי עמודת הלחץ מהנתונים הקיימים
+            stress_col = 'StressLevel' if 'StressLevel' in df_all.columns else 'Stress'
             
             # חישוב עצימות משוקללת (זמן * לחץ / 3)
             df_chart['Weighted_Duration'] = df_chart['Duration'] * (pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3) / 3.0)
@@ -270,68 +271,53 @@ with tab1:
             daily['Intensity'] = daily['Weighted_Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
             daily = daily.reset_index()
 
-            # --- חישוב אחוזונים ובניית שכבות הגובה ---
-            q33 = daily['Intensity'].quantile(0.33) # שליש תחתון
-            q90 = daily['Intensity'].quantile(0.90) # עשירון עליון
+            # --- חישוב אחוזונים חכם (רק ימים עם עצימות משמעותית) ---
+            active_intensity = daily['Intensity'][daily['Intensity'] > 0.1]
+            if not active_intensity.empty:
+                q33 = active_intensity.quantile(0.33) # שליש תחתון מתוך ימי האימון
+                q90 = active_intensity.quantile(0.90) # עשירון עליון
+            else:
+                q33, q90 = 0.5, 2.0
             
             y_actual = daily['Intensity']
-            y_blue = np.minimum(y_actual, q33)          # קו המקסימום של השכבה הכחולה
-            y_green = np.minimum(y_actual, q90)         # קו המקסימום של השכבה הירוקה
+            y_blue = np.minimum(y_actual, q33)          
+            y_green = np.minimum(y_actual, q90)         
 
             fig = go.Figure()
 
-            # --- בניית השטח מתחת לגרף בשכבות ---
-            
-            # שכבה 1: כחול (מ-0 ועד קו השליש התחתון, אבל נחתך היכן שהגרף נמוך יותר)
+            # שכבות הצבע תחת הגרף
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=y_blue,
-                fill='tozeroy', fillcolor='rgba(33, 150, 243, 0.3)', # כחול
+                fill='tozeroy', fillcolor='rgba(33, 150, 243, 0.35)', 
                 mode='lines', line=dict(width=0, shape='spline'),
                 showlegend=False, hoverinfo='skip'
             ))
-
-            # שכבה 2: ירוק (ממלא מהקו הכחול ועד גבול ה-90%, נחתך היכן שהגרף נמוך יותר)
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=y_green,
-                fill='tonexty', fillcolor='rgba(76, 175, 80, 0.3)',  # ירוק
+                fill='tonexty', fillcolor='rgba(76, 175, 80, 0.35)',  
                 mode='lines', line=dict(width=0, shape='spline'),
                 showlegend=False, hoverinfo='skip'
             ))
-
-            # שכבה 3: אדום (ממלא מהקו הירוק ועד לפסגת הגרף האמיתית)
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=y_actual,
-                fill='tonexty', fillcolor='rgba(244, 67, 54, 0.3)',  # אדום
+                fill='tonexty', fillcolor='rgba(244, 67, 54, 0.35)',  
                 mode='lines', line=dict(width=0, shape='spline'),
                 showlegend=False, hoverinfo='skip'
             ))
 
-            # --- הקוים והנקודות עצמם ---
-
-            # שכבה 4: קו העצימות המוחלק (ללא נקודות) רוכב בדיוק מעל הצבעים
+            # קו העצימות המרכזי
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=daily['Intensity'],
                 mode='lines',
-                line=dict(color='#444444', width=3, shape='spline'), # צבע אפור כהה נייטרלי לקו
-                name='עצימות משוקללת',
-                hovertemplate="עומס מורגש: %{y:.2f}<extra></extra>"
+                line=dict(color='#444444', width=3, shape='spline'), 
+                name='עצימות משוקללת'
             ))
 
-            # שכבה 5: קו מגמת השיא של האימונים הבודדים 
-            df_line = df_chart[(df_chart['Duration'] > 0.5) | (pd.to_numeric(df_chart[stress_col], errors='coerce') >= 4)]
-            fig.add_trace(go.Scatter(
-                x=df_line['Date'], y=df_line['Duration'],
-                mode='lines',
-                name='מגמת שיא',
-                line=dict(color='rgba(100, 100, 100, 0.4)', width=2, dash='dot'),
-                hovertemplate="מגמה: %{y} שעות<extra></extra>"
-            ))
-
-            # שכבה 6: הנקודות של האימונים הגולמיים (צבע לפי לחץ)
+            # נקודות האימון הבודדות (צבע לפי לחץ)
             fig.add_trace(go.Scatter(
                 x=df_chart['Date'], y=df_chart['Duration'],
                 mode='markers',
-                name='אימונים בודדים',
+                name='אימונים',
                 marker=dict(
                     size=10, 
                     color=pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3),
@@ -342,18 +328,24 @@ with tab1:
                 hovertemplate="<b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
             ))
 
-            # עיצוב סופי
             fig.update_layout(
                 title="🐕 ניתוח עומס משולב של מייפל",
-                yaxis_title="שעות / מדד עומס",
+                yaxis_title="עומס משוקלל / זמן",
                 hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                margin=dict(l=0, r=0, t=60, b=0),
+                margin=dict(l=0, r=0, t=60, b=50), # הגדלת השוליים לתאריכים
                 height=500
             )
-            fig.update_xaxes(dtick="D1", tickformat="%d/%m")
-            st.plotly_chart(fig, use_container_width=True)
             
+            # תיקון תצוגת התאריכים
+            fig.update_xaxes(
+                tickfont=dict(size=14), # גופן גדול יותר
+                automargin=True,
+                tickformat="%d/%m" # פורמט קצר וקולע
+                # dtick הוסר כדי לאפשר לגרף לבחור מרווחים בעצמו
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
             st.link_button("פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True)
 
         else:
