@@ -261,8 +261,12 @@ with tab1:
             df_chart['Stress'] = pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3)
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            # --- חישוב מדד עצימות (דעיכה אקספוננציאלית) ---
-            daily = df_chart.groupby('Date')['Duration'].sum().reset_index()
+            # --- חישוב מדד עצימות משוקלל (זמן + לחץ + דעיכה אקספוננציאלית) ---
+            # מכפילים את הזמן ברמת הלחץ ומחלקים ב-3
+            # כך לחץ 3 (רגיל) משאיר את הזמן כפי שהוא, לחץ 5 מגדיל אותו, ולחץ 1 מקטין אותו
+            df_chart['Weighted_Duration'] = df_chart['Duration'] * (df_chart['Stress'] / 3.0)
+            
+            daily = df_chart.groupby('Date')['Weighted_Duration'].sum().reset_index()
             daily.set_index('Date', inplace=True)
             daily = daily.resample('D').sum().fillna(0)
             
@@ -271,9 +275,10 @@ with tab1:
                 weights = [0.5**(length - 1 - i) for i in range(length)]
                 return sum(w * val for w, val in zip(weights, window))
             
-            daily['Intensity'] = daily['Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
+            # מריצים את חלון הזמן על הזמן המשוקלל החדש (Weighted_Duration) במקום על הזמן הרגיל
+            daily['Intensity'] = daily['Weighted_Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
             daily = daily.reset_index()
-
+            
             # --- בניית הגרף המאוחד ---
             fig = go.Figure()
 
