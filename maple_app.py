@@ -279,27 +279,34 @@ with tab1:
                 fig1.update_xaxes(dtick="D1", tickformat="%d/%m")
                 st.plotly_chart(fig1, use_container_width=True)
             
-            # -------- גרף 2: "אנרגיית" אימונים (7 Days Moving Average) --------
+            # -------- גרף 2: מדד עצימות ועומס אימונים (דעיכה אקספוננציאלית) --------
             st.divider()
             
             # מקבצים לפי תאריך כדי לסכום אימונים מרובים באותו יום
             daily_duration = df_chart.groupby('Date')['Duration'].sum().reset_index()
             
-            # המג'יק: הופכים את התאריך לאינדקס וממלאים ימים ריקים ב-0 (ימים ללא תרגול)
+            # הופכים את התאריך לאינדקס וממלאים ימים ריקים ב-0 (ימים ללא תרגול)
             daily_duration.set_index('Date', inplace=True)
             daily_duration = daily_duration.resample('D').sum().fillna(0)
             
-            # חישוב האנרגיה: סכום השעות המצטבר בכל חלון של 3 ימים
-            daily_duration['3_Day_Energy'] = daily_duration['Duration'].rolling(window=3, min_periods=1).sum()
+            # פונקציה שמחשבת את העומס המורגש לפי דעיכה של חצי כל יום לאחור
+            def calculate_intensity(window):
+                length = len(window)
+                # יוצר משקולות: היום=1, אתמול=0.5, שלשום=0.25...
+                weights = [0.5**(length - 1 - i) for i in range(length)]
+                # מכפיל כל יום במשקל שלו וסוכם
+                return sum(w * val for w, val in zip(weights, window))
+            
+            # מריצים את החישוב על חלון של 7 ימים
+            daily_duration['Intensity'] = daily_duration['Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
             daily_duration = daily_duration.reset_index()
             
-            # ציור גרף שטח (Area) שנותן תחושה של "מד מאמץ" מצטבר
-            fig_energy = px.area(daily_duration, x='Date', y='7_Day_Energy',
-                                 title="🔋 'אנרגיית' השבוע (סך שעות אימון מצטבר לכל 3 ימים)",
-                                 labels={'Date':'', '3_Day_Energy':'שעות אימון ב-3 ימים'})
+            # ציור גרף שטח (Area) בצבע כתום "אנרגטי"
+            fig_energy = px.area(daily_duration, x='Date', y='Intensity',
+                                 title="🔋 מדד עומס מורגש (השפעת אימונים קודמים דועכת בחצי בכל יום)",
+                                 labels={'Date':'', 'Intensity':'מדד עומס (שעות משוקללות)'})
             
-            # צבע סגול/כחול זורם שמראה את המאמץ השבועי
-            fig_energy.update_traces(line_color='#673AB7', fillcolor='rgba(103, 58, 183, 0.2)', mode='lines+markers')
+            fig_energy.update_traces(line_color='#FF9800', fillcolor='rgba(255, 152, 0, 0.3)', mode='lines+markers')
             fig_energy.update_xaxes(dtick="D1", tickformat="%d/%m")
             
             st.plotly_chart(fig_energy, use_container_width=True)
