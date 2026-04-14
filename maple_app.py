@@ -249,7 +249,7 @@ with tab1:
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
             # --- הגרף המאוחד: עצימות, מגמה ונקודות ---
-        st.divider()
+        
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
             import plotly.graph_objects as go
             
