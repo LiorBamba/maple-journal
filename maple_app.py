@@ -209,15 +209,13 @@ with tab1:
         
         # הצגת הזמן המחושב למשתמש כאינדיקציה
         st.info(f"⏳ האפליקציה חישבה משך אימון של: **{calc_duration:.2f} שעות**")
-        
-        st.divider()
-        
+                
         # --- אזור המדדים והערות ---
         st.write("**איך היה?**")
         # select_slider הרבה יותר נוח בנייד מאשר number_input
         d_stress = st.select_slider("מדד לחץ (1 - רגועה לחלוטין, 5 - פאניקה)", options=[1, 2, 3, 4, 5], value=3)
         # text_area מאפשר לכתוב כמה שורות בנוחות מהטלפון
-        d_note = st.text_area("📝 הערות (מה היא עשתה? איך נפרדתם?)")
+        d_note = st.text_area("📝 הערות)")
         
         # כפתור רחב שנוח ללחוץ עליו בנייד
         if st.form_submit_button("שמור אימון 💾", use_container_width=True):
