@@ -243,7 +243,7 @@ with tab1:
                 del st.session_state['train_original']
                 st.rerun()
 
-        # --- הגרף המאוחד: גרסה מתוקנת וחסונה ---
+        # --- הגרף המאוחד: גרסה מתוקנת עם זיהוי שעות מדויק ---
         st.divider()
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
             import plotly.graph_objects as go
@@ -251,21 +251,35 @@ with tab1:
 
             df_chart = df_all.copy()
             
-            # 1. עיבוד תאריכים בטוח (הסיבה שהגרף נחתך קודם)
-            df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
+            # --- 1. סידור תאריכים ושעות בצורה חסינה לתקלות ---
+            # מחלצים רק את התאריך הנקי כטקסט (ללא תוספות של שעות איפוס)
+            df_chart['CleanDate'] = pd.to_datetime(df_chart['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
             
-            # אם אין שעה בגיליון, נניח שזה 12:00 כדי לא לשבור את הקוד
-            time_str = df_chart.get('Time', '12:00').astype(str).str.replace('nan', '12:00', case=False)
-            df_chart['FullDate'] = pd.to_datetime(df_chart['Date'].dt.strftime('%Y-%m-%d') + ' ' + time_str, errors='coerce')
-            # גיבוי למקרה קיצון שבו החיבור נכשל
-            df_chart['FullDate'] = df_chart['FullDate'].fillna(df_chart['Date'])
+            # פונקציה חכמה לניקוי השעה שמגיעה מגוגל שיטס
+            def parse_time(t):
+                t = str(t).strip().split('.')[0] # מסיר מילי-שניות (14:43:46.217 -> 14:43:46)
+                if t.lower() in ['nan', 'none', 'null', '']: return '12:00' # אם אין שעה
+                if len(t) >= 5 and ':' in t: return t[:5] # פורמט תקין (14:43)
+                if len(t) == 4 and t.isdigit(): return f"{t[:2]}:{t[2:]}" # פורמט רציף (1100 -> 11:00)
+                return '12:00' # ברירת מחדל לכל שגיאה אחרת
             
-            df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('FullDate')
+            # מחילים את ניקוי השעה רק אם העמודה קיימת בנתונים
+            if 'Time' in df_chart.columns:
+                time_series = df_chart['Time'].apply(parse_time)
+            else:
+                time_series = '12:00'
+                
+            # מרכיבים תאריך מלא אמיתי (תאריך + שעה) שיאפשר להפריד אימונים באותו יום
+            df_chart['FullDate'] = pd.to_datetime(df_chart['CleanDate'] + ' ' + time_series, errors='coerce')
+            df_chart['Date'] = pd.to_datetime(df_chart['CleanDate'], errors='coerce')
+            
+            # מסננים תקלות ומסדרים לפי סדר כרונולוגי
+            df_chart = df_chart.dropna(subset=['FullDate', 'Duration']).sort_values('FullDate')
             
             stress_col = 'StressLevel' if 'StressLevel' in df_all.columns else 'Stress'
             df_chart['Weighted_Duration'] = df_chart['Duration'] * (pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3) / 3.0)
             
-            # --- חישוב עצימות ---
+            # --- חישוב עצימות יומית (גרף השטח מחושב לפי ימים) ---
             daily = df_chart.groupby('Date')['Weighted_Duration'].sum().reset_index()
             daily.set_index('Date', inplace=True)
             daily = daily.resample('D').sum().fillna(0)
@@ -292,7 +306,7 @@ with tab1:
 
             fig = go.Figure()
 
-            # --- שכבות הצבע תחת הגרף בלבד (הוסר ה-Spline שגרם לעיוותים) ---
+            # --- שכבות הצבע תחת הגרף בלבד (לפי ימים) ---
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=y_blue,
                 fill='tozeroy', fillcolor='rgba(33, 150, 243, 0.4)',  # כחול
@@ -312,7 +326,7 @@ with tab1:
                 showlegend=False, hoverinfo='skip'
             ))
 
-            # --- קו העצימות המרכזי (רוכב על הצבעים) ---
+            # --- קו העצימות המרכזי ---
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=daily['Intensity'],
                 mode='lines',
@@ -320,7 +334,7 @@ with tab1:
                 name='עצימות משוקללת'
             ))
 
-            # --- קו מגמה מקוקו בין שיאים ---
+            # --- קו מגמה מקוקו בין שיאים (משתמש ב-FullDate) ---
             df_line = df_chart[(df_chart['Duration'] > 0.5) | (pd.to_numeric(df_chart[stress_col], errors='coerce') >= 4)]
             if not df_line.empty:
                 fig.add_trace(go.Scatter(
@@ -331,7 +345,7 @@ with tab1:
                     hovertemplate="מגמת שיא: %{y} שעות<extra></extra>"
                 ))
 
-            # --- נקודות האימונים (מופרדות לפי FullDate) ---
+            # --- נקודות האימונים המדויקות (מופרדות לפי FullDate) ---
             fig.add_trace(go.Scatter(
                 x=df_chart['FullDate'], y=df_chart['Duration'],
                 mode='markers',
@@ -350,7 +364,7 @@ with tab1:
             fig.update_layout(
                 title="🐕 ניתוח עומס והתקדמות של מייפל",
                 yaxis_title="עומס משוקלל / זמן",
-                hovermode="closest", # כדי למנוע קפיצות כשיש שני אימונים באותו יום
+                hovermode="closest", # חובה כדי שאפשר יהיה לבחור מתוך אימונים סמוכים
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 margin=dict(l=0, r=0, t=60, b=50),
                 height=500
