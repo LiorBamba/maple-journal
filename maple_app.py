@@ -208,7 +208,7 @@ with tab1:
         calc_duration = (dt_end - dt_start).total_seconds() / 3600.0
         
         # הצגת הזמן המחושב למשתמש כאינדיקציה
-        st.info(f"⏳ האפליקציה חישבה משך אימון של: **{calc_duration:.2f} שעות**")
+        st.info(f"⏳  חושב משך אימון של: **{calc_duration:.2f} שעות**")
                 
         # --- אזור המדדים והערות ---
         st.write("**איך היה?**")
