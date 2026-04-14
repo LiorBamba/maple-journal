@@ -198,32 +198,48 @@ with tab1:
 
     st.divider()
     
-    # --- חלק ב: עריכה וגרף ---
     st.subheader("✏️ עריכת היסטוריה (10 אחרונים)")
     
     # 1. טעינת כל הנתונים
     df_all = get_data("Training")
     
     if not df_all.empty:
+        # --- שדרוג UI: ניקוי הנתונים לפני התצוגה ---
+        # חיתוך המילי-שניות מעמודת השעה (נשאיר רק HH:MM)
+        if 'Time' in df_all.columns:
+            df_all['Time'] = df_all['Time'].astype(str).apply(lambda x: x[:5] if len(x) > 5 else x)
+        
+        # המרה למספרים כדי שהעורך ייתן לנו חיצים קטנים לעריכה (Steppers)
+        if 'Duration' in df_all.columns:
+            df_all['Duration'] = pd.to_numeric(df_all['Duration'], errors='coerce')
+        if 'StressLevel' in df_all.columns:
+            df_all['StressLevel'] = pd.to_numeric(df_all['StressLevel'], errors='coerce')
+
         # 2. חיתוך: לוקחים רק את ה-10 האחרונים
-        # הפקודה tail שומרת על האינדקס המקורי (למשל שורה 100 תישאר עם אינדקס 99)
         df_tail = df_all.tail(10)
 
-        # 3. שמירת המצב המקורי של ה-10 האלו בזיכרון להשוואה
-        # אנחנו שומרים מפתח ייחודי לכל טאב (train_original)
+        # 3. שמירת המצב המקורי בזיכרון להשוואה
         if 'train_original' not in st.session_state:
              st.session_state['train_original'] = df_tail.copy()
 
-        # 4. הצגת העורך רק ל-10 השורות
-        # num_rows="fixed" -> מונע הוספת שורות דרך הטבלה (כדי לא לבלבל את האינדקסים)
-        # להוספה יש לנו את הטופס למעלה!
-        edited_df = st.data_editor(df_tail, num_rows="fixed", use_container_width=True, key="train_editor")
+        # 4. הצגת העורך המעוצב!
+        edited_df = st.data_editor(
+            df_tail, 
+            num_rows="fixed", 
+            use_container_width=True, 
+            hide_index=True, # מעלים את העמודה של מספרי השורות (7, 8, 9...)
+            key="train_editor",
+            column_config={
+                "Date": st.column_config.Column("📅 תאריך"),
+                "Time": st.column_config.Column("⏰ שעה"),
+                "Duration": st.column_config.NumberColumn("⏳ זמן (שעות)", format="%.2f", min_value=0.0, step=0.25),
+                "StressLevel": st.column_config.NumberColumn("😰 מדד לחץ", min_value=1, max_value=5, step=1),
+                "Notes": st.column_config.TextColumn("📝 הערות")
+            }
+        )
         
-        if st.button("שמור שינויים 💾", key="save_tail_btn"):
-            # שימוש בפונקציה החדשה
-            # אנחנו משווים את מה שיש במסך (edited_df) למה ששמרנו בזיכרון (df_tail המקורי)
+        if st.button("שמור שינויים בטבלה 💾", key="save_tail_btn"):
             if smart_update("Training", st.session_state['train_original'], edited_df):
-                # ניקוי הזיכרון כדי לטעון מחדש בפעם הבאה
                 del st.session_state['train_original']
                 st.rerun()
 
