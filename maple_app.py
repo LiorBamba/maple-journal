@@ -243,7 +243,7 @@ with tab1:
                 del st.session_state['train_original']
                 st.rerun()
 
-        # --- הגרף המאוחד והנקי (Layered Zones) ---
+        # --- הגרף המאוחד והנקי (Layered Zones) עם קו מגמה משוחזר ---
         st.divider()
         if 'Date' in df_all.columns and 'Duration' in df_all.columns:
             import plotly.graph_objects as go
@@ -253,7 +253,7 @@ with tab1:
             df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            # זיהוי עמודת הלחץ מהנתונים הקיימים
+            # זיהוי עמודת הלחץ
             stress_col = 'StressLevel' if 'StressLevel' in df_all.columns else 'Stress'
             
             # חישוב עצימות משוקללת (זמן * לחץ / 3)
@@ -263,6 +263,7 @@ with tab1:
             daily.set_index('Date', inplace=True)
             daily = daily.resample('D').sum().fillna(0)
             
+            # פונקציית דעיכה (חצי בכל יום)
             def calculate_intensity(window):
                 length = len(window)
                 weights = [0.5**(length - 1 - i) for i in range(length)]
@@ -271,11 +272,11 @@ with tab1:
             daily['Intensity'] = daily['Weighted_Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
             daily = daily.reset_index()
 
-            # --- חישוב אחוזונים חכם (רק ימים עם עצימות משמעותית) ---
+            # חישוב אחוזונים חכם (רק ימים פעילים)
             active_intensity = daily['Intensity'][daily['Intensity'] > 0.1]
             if not active_intensity.empty:
-                q33 = active_intensity.quantile(0.33) # שליש תחתון מתוך ימי האימון
-                q90 = active_intensity.quantile(0.90) # עשירון עליון
+                q33 = active_intensity.quantile(0.33)
+                q90 = active_intensity.quantile(0.90)
             else:
                 q33, q90 = 0.5, 2.0
             
@@ -285,7 +286,7 @@ with tab1:
 
             fig = go.Figure()
 
-            # שכבות הצבע תחת הגרף
+            # --- 1. שכבות הצבע תחת הגרף (Area Fills) ---
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=y_blue,
                 fill='tozeroy', fillcolor='rgba(33, 150, 243, 0.35)', 
@@ -305,7 +306,7 @@ with tab1:
                 showlegend=False, hoverinfo='skip'
             ))
 
-            # קו העצימות המרכזי
+            # --- 2. קו העצימות המרכזי (הקו החלק) ---
             fig.add_trace(go.Scatter(
                 x=daily['Date'], y=daily['Intensity'],
                 mode='lines',
@@ -313,11 +314,23 @@ with tab1:
                 name='עצימות משוקללת'
             ))
 
-            # נקודות האימון הבודדות (צבע לפי לחץ)
+            # --- 3. שחזור קו המגמה (הקו המקוקו בין נקודות שיא) ---
+            # סינון נקודות משמעותיות: זמן > 0.5 או לחץ >= 4
+            df_line = df_chart[(df_chart['Duration'] > 0.5) | (pd.to_numeric(df_chart[stress_col], errors='coerce') >= 4)]
+            if not df_line.empty:
+                fig.add_trace(go.Scatter(
+                    x=df_line['Date'], y=df_line['Duration'],
+                    mode='lines',
+                    name='קו מגמה (שיאים)',
+                    line=dict(color='rgba(80, 80, 80, 0.5)', width=2, dash='dot'),
+                    hovertemplate="מגמת שיא: %{y} שעות<extra></extra>"
+                ))
+
+            # --- 4. נקודות האימון הבודדות ---
             fig.add_trace(go.Scatter(
                 x=df_chart['Date'], y=df_chart['Duration'],
                 mode='markers',
-                name='אימונים',
+                name='אימונים בודדים',
                 marker=dict(
                     size=10, 
                     color=pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3),
@@ -328,28 +341,27 @@ with tab1:
                 hovertemplate="<b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
             ))
 
+            # עיצוב הצירים והתצוגה
             fig.update_layout(
-                title="🐕 ניתוח עומס משולב של מייפל",
+                title="🐕 ניתוח עומס והתקדמות של מייפל",
                 yaxis_title="עומס משוקלל / זמן",
                 hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                margin=dict(l=0, r=0, t=60, b=50), # הגדלת השוליים לתאריכים
+                margin=dict(l=0, r=0, t=60, b=50),
                 height=500
             )
             
-            # תיקון תצוגת התאריכים
             fig.update_xaxes(
-                tickfont=dict(size=14), # גופן גדול יותר
+                tickfont=dict(size=14),
                 automargin=True,
-                tickformat="%d/%m" # פורמט קצר וקולע
-                # dtick הוסר כדי לאפשר לגרף לבחור מרווחים בעצמו
+                tickformat="%d/%m"
             )
             
             st.plotly_chart(fig, use_container_width=True)
             st.link_button("פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True)
 
         else:
-            st.info("אין מספיק נתונים להצגת הגרף המאוחד.")
+            st.info("אין מספיק נתונים להצגת הגרף.")
 
 # --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
