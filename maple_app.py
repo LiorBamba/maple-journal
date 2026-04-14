@@ -248,71 +248,93 @@ with tab1:
             
             df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            # -------- גרף 1: קו מגמה ונקודות (עם הלחץ המתוקן) --------
-            df_line = df_chart[(df_chart['Duration'] > 0.5) | (df_chart['Stress'] >= 4)]
-
-            if not df_chart.empty:
-                fig1 = px.line(df_line, x='Date', y='Duration', 
-                              title="📈 מעקב אימונים: קו מגמה (משמעותי) וכל האימונים (נקודות)", 
-                              labels={'Date':'', 'Duration':'זמן אימון (שעות)'})
-                
-                fig1.update_traces(line=dict(color='#D3D3D3', width=2, dash='dot'), name="מגמת התקדמות")
-                
-                fig1.add_scatter(
-                    x=df_chart['Date'], 
-                    y=df_chart['Duration'],
-                    mode='markers',
-                    marker=dict(
-                        size=10,
-                        color=df_chart['Stress'],
-                        colorscale=[[0, "#4CAF50"], [0.5, "#FFC107"], [1.0, "#FF5252"]],
-                        cmin=1, cmax=5,
-                        showscale=True,
-                        colorbar=dict(title="מדד לחץ", x=1.1)
-                    ),
-                    customdata=df_chart['Stress'],
-                    hovertemplate="<b>תאריך:</b> %{x}<br><b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>",
-                    name="כל האימונים"
-                )
-    
-                fig1.update_layout(hovermode="closest")
-                fig1.update_xaxes(dtick="D1", tickformat="%d/%m")
-                st.plotly_chart(fig1, use_container_width=True)
+            # --- הגרף המאוחד: עצימות, מגמה ונקודות ---
+        st.divider()
+        if 'Date' in df_all.columns and 'Duration' in df_all.columns:
+            import plotly.graph_objects as go
             
-            # -------- גרף 2: מדד עצימות ועומס אימונים (דעיכה אקספוננציאלית) --------
-            st.divider()
+            df_chart = df_all.copy()
+            stress_col = df_all.columns[3] if len(df_all.columns) >= 4 else 'Stress'
             
-            # מקבצים לפי תאריך כדי לסכום אימונים מרובים באותו יום
-            daily_duration = df_chart.groupby('Date')['Duration'].sum().reset_index()
+            df_chart['Date'] = pd.to_datetime(df_chart['Date'], errors='coerce')
+            df_chart['Duration'] = pd.to_numeric(df_chart['Duration'], errors='coerce')
+            df_chart['Stress'] = pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3)
+            df_chart = df_chart.dropna(subset=['Date', 'Duration']).sort_values('Date')
             
-            # הופכים את התאריך לאינדקס וממלאים ימים ריקים ב-0 (ימים ללא תרגול)
-            daily_duration.set_index('Date', inplace=True)
-            daily_duration = daily_duration.resample('D').sum().fillna(0)
+            # --- חישוב מדד עצימות (דעיכה אקספוננציאלית) ---
+            daily = df_chart.groupby('Date')['Duration'].sum().reset_index()
+            daily.set_index('Date', inplace=True)
+            daily = daily.resample('D').sum().fillna(0)
             
-            # פונקציה שמחשבת את העומס המורגש לפי דעיכה של חצי כל יום לאחור
             def calculate_intensity(window):
                 length = len(window)
-                # יוצר משקולות: היום=1, אתמול=0.5, שלשום=0.25...
                 weights = [0.5**(length - 1 - i) for i in range(length)]
-                # מכפיל כל יום במשקל שלו וסוכם
                 return sum(w * val for w, val in zip(weights, window))
             
-            # מריצים את החישוב על חלון של 7 ימים
-            daily_duration['Intensity'] = daily_duration['Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
-            daily_duration = daily_duration.reset_index()
+            daily['Intensity'] = daily['Duration'].rolling(window=7, min_periods=1).apply(calculate_intensity)
+            daily = daily.reset_index()
+
+            # --- בניית הגרף המאוחד ---
+            fig = go.Figure()
+
+            # 1. שכבת האנרגיה/עצימות (שטח שקוף בתוך הרקע)
+            fig.add_trace(go.Scatter(
+                x=daily['Date'], y=daily['Intensity'],
+                fill='tozeroy',
+                mode='lines',
+                name='עצימות (עומס מורגש)',
+                line=dict(color='rgba(255, 152, 0, 0.4)', width=0),
+                fillcolor='rgba(255, 152, 0, 0.2)',
+                hovertemplate="עומס מורגש: %{y:.2f}<extra></extra>"
+            ))
+
+            # 2. קו מגמה (רק אימונים משמעותיים)
+            df_line = df_chart[(df_chart['Duration'] > 0.5) | (df_chart['Stress'] >= 4)]
+            fig.add_trace(go.Scatter(
+                x=df_line['Date'], y=df_line['Duration'],
+                mode='lines',
+                name='קו מגמה',
+                line=dict(color='rgba(150, 150, 150, 0.5)', width=2, dash='dot'),
+                hovertemplate="מגמה: %{y} שעות<extra></extra>"
+            ))
+
+            # 3. נקודות האימון (כל האימונים עם צבע לפי לחץ)
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=df_chart['Duration'],
+                mode='markers',
+                name='אימונים',
+                marker=dict(
+                    size=12,
+                    color=df_chart['Stress'],
+                    colorscale=[[0, "#4CAF50"], [0.5, "#FFC107"], [1.0, "#FF5252"]],
+                    cmin=1, cmax=5,
+                    showscale=True,
+                    colorbar=dict(title="מדד לחץ", x=1.05),
+                    line=dict(width=1, color='white')
+                ),
+                customdata=df_chart['Stress'],
+                hovertemplate="<b>תאריך:</b> %{x}<br><b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
+            ))
+
+            # עיצוב כללי
+            fig.update_layout(
+                title="📊 ניתוח משולב: עומס, מגמה ותוצאות",
+                xaxis_title="",
+                yaxis_title="שעות / מדד עומס",
+                hovermode="x unified",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                margin=dict(l=0, r=0, t=50, b=0)
+            )
+            fig.update_xaxes(dtick="D1", tickformat="%d/%m")
             
-            # ציור גרף שטח (Area) בצבע כתום "אנרגטי"
-            fig_energy = px.area(daily_duration, x='Date', y='Intensity',
-                                 title="🔋 מדד עומס מורגש (השפעת אימונים קודמים דועכת בחצי בכל יום)",
-                                 labels={'Date':'', 'Intensity':'מדד עומס (שעות משוקללות)'})
+            st.plotly_chart(fig, use_container_width=True)
             
-            fig_energy.update_traces(line_color='#FF9800', fillcolor='rgba(255, 152, 0, 0.3)', mode='lines+markers')
-            fig_energy.update_xaxes(dtick="D1", tickformat="%d/%m")
-            
-            st.plotly_chart(fig_energy, use_container_width=True)
-            
+            # כפתור קישור לגוגל שיטס
+            st.write("")
+            st.link_button("פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True)
+
         else:
-            st.info("אין מספיק נתונים להצגת הגרפים.")
+            st.info("אין מספיק נתונים
 
 # --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
