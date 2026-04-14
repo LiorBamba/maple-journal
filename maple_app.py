@@ -334,7 +334,7 @@ with tab1:
             st.link_button("פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True)
 
         else:
-            st.info("אין מספיק נתונים
+            st.info("אין מספיק נתונים)
 
 # --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
