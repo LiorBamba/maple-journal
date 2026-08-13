@@ -381,7 +381,7 @@ with tab1:
             fig.update_xaxes(
                 tickfont=dict(size=14),
                 automargin=True,
-                tickformat="%d/%m"
+                tickformat="%d/%m",
                 range=[two_months_ago, max_date + pd.Timedelta(days=1)] # מגדיר את הזום הדיפולטיבי
             )
             
