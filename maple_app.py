@@ -367,7 +367,10 @@ with tab1:
                 customdata=pd.to_numeric(df_chart[stress_col], errors='coerce').fillna(3),
                 hovertemplate="<b>תאריך ושעה:</b> %{x|%d/%m %H:%M}<br><b>זמן:</b> %{y} שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
             ))
-
+            # --- חישוב טווח זמנים לתצוגת ברירת מחדל (חודשיים אחרונים) ---
+            max_date = df_chart['Date'].max()
+            two_months_ago = max_date - pd.DateOffset(months=2)
+            
             # --- עיצוב ---
             fig.update_layout(
                 title="🐕 ניתוח עומס והתקדמות של מייפל",
