@@ -17,20 +17,35 @@ st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap');
+    
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         direction: RTL;
         text-align: right;
         font-family: 'Rubik', sans-serif;
     }
-    [data-baseweb="tab-list"] { direction: RTL; display: flex; justify-content: flex-end; }
-    input, textarea, .stSelectbox { direction: RTL; text-align: right; }
     
-    /* מניעת היפוך שעות, תאריכים ומספרים בגלל עברית */
-    [data-testid="stTimeInput"] input, 
-    [data-testid="stDateInput"] input, 
-    [data-testid="stNumberInput"] input {
+    [data-baseweb="tab-list"] { 
+        direction: RTL; 
+        display: flex; 
+        justify-content: flex-end; 
+    }
+    
+    /* שדות טקסט בעברית */
+    textarea, [data-testid="stTextInput"] input {
+        direction: RTL !important;
+        text-align: right !important;
+    }
+    
+    /* תיקון היפוך זמנים, תאריכים ומספרים */
+    [data-testid="stTimeInput"] input,
+    [data-testid="stDateInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTimeInput"] div,
+    [data-testid="stDateInput"] div,
+    [data-testid="stNumberInput"] div {
         direction: ltr !important;
-        text-align: center !important;
+        text-align: left !important;
+        unicode-bidi: isolate !important;
     }
 
     [data-testid="stSlider"] { direction: ltr; }
@@ -189,13 +204,13 @@ with tab1:
 
   # חישוב דינמי של אמצע השיא מתוך הנתונים הקיימים
   df_train_existing = get_data("Training")
-  default_duration = 2.5  # ברירת מחדל בטוחה
+  default_duration = 2.5  # ברירת מחדל
   if not df_train_existing.empty and "Duration" in df_train_existing.columns:
     max_dur = pd.to_numeric(
         df_train_existing["Duration"], errors="coerce"
     ).max()
     if pd.notna(max_dur) and max_dur > 0:
-      default_duration = round((max_dur / 2.0) * 4) / 4  # עיגול לרבע שעה קרוב
+      default_duration = round((max_dur / 2.0) * 4) / 4  # עיגול לרבע שעה
 
   default_hours = int(default_duration)
   default_frac = round(default_duration - default_hours, 2)
@@ -214,7 +229,7 @@ with tab1:
           key="train_manual_start_time",
       )
 
-    # שורה 2: שני כפתורי +/- (פלוס שעות שלמות + פלוס רבעי שעה)
+    # שורה 2: שני כפתורי +/- (שעות שלמות ורבעי שעה)
     c_hours, c_quarters = st.columns(2)
     with c_hours:
       dur_h = st.number_input(
@@ -238,7 +253,7 @@ with tab1:
 
     total_duration = round(float(dur_h) + float(dur_q), 2)
 
-    # שורת סיכום נקייה
+    # שורת סיכום
     if total_duration > 0 and start_time:
       dummy_dt = datetime.combine(d_date, start_time) + timedelta(
           hours=total_duration
@@ -264,7 +279,7 @@ with tab1:
         }[x],
     )
 
-    # שורה 4: שדה הערות ישיר ונקי
+    # שורה 4: שדה הערות ישיר
     d_note = st.text_input(
         "📝 הערות", placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)"
     )
