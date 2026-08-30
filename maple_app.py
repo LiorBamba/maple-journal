@@ -303,8 +303,7 @@ with tab1:
                   " שעות)"
               )
               st.rerun()
-
-    st.divider()
+        st.divider()
     
     # --- חלק ג: עריכת היסטוריה בתוך תפריט מתקפל ---
     # ה-expander יהיה סגור בברירת מחדל (expanded=False)
