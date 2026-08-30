@@ -30,14 +30,13 @@ st.markdown(
         justify-content: flex-end; 
     }
     
-    /* שדות טקסט חופשי והערות - RTL מימין לשמאל */
-    [data-testid="stTextInput"] input,
-    [data-testid="stTextArea"] textarea {
+    /* שדות טקסט חופשי */
+    textarea, [data-testid="stTextInput"] input {
         direction: rtl !important;
         text-align: right !important;
     }
     
-    /* שעה, תאריך ומספרים - LTR כדי שתווים וספרות לא יתהפכו */
+    /* תאריכים, שעות ומספרים - LTR כדי שהספרות לא יתהפכו */
     [data-testid="stTimeInput"] input,
     [data-testid="stDateInput"] input,
     [data-testid="stNumberInput"] input {
