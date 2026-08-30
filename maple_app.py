@@ -170,35 +170,32 @@ tab1, tab2, tab3 = st.tabs(["🏃 הישארות לבד", "🦴 האכלות", "
 
 # --- טאב 1: אימונים (Training) ---
 with tab1:
-      st.header("תיעוד חשיפה ונטישות")
-      st.subheader("📝 הוספת אימון חדש")
+    st.header("תיעוד חשיפה ונטישות")
+    st.subheader("📝 הוספת אימון חדש")
 
-      now_il = datetime.now(IL_TZ)
+    now_il = datetime.now(IL_TZ)
 
-      # חישוב דינמי של אמצע השיא מתוך הנתונים הקיימים (אם קיימים)
-      df_train_existing = get_data("Training")
-      default_duration = 2.5  # ברירת מחדל קבועה בטוחה
-      if not df_train_existing.empty and "Duration" in df_train_existing.columns:
-        max_dur = pd.to_numeric(
-            df_train_existing["Duration"], errors="coerce"
-        ).max()
-        if pd.notna(max_dur) and max_dur > 0:
-          # עיגול לקפיצה הקרובה של 0.5
-          default_duration = round((max_dur / 2.0) * 2) / 2
-
-      # טופס ללא clear_on_submit למניעת דריסת שעת ההתחלה הידנית
-      with st.form(" maple_training_form "):
+    # חישוב דינמי של אמצע השיא מתוך הנתונים הקיימים (אם קיימים)
+    df_train_existing = get_data("Training")
+    default_duration = 2.5  # ברירת מחדל קבועה בטוחה
+    if not df_train_existing.empty and "Duration" in df_train_existing.columns:
+        max_dur = pd.to_numeric(df_train_existing["Duration"], errors="coerce").max()
+        if pd.notna(max_dur) and max_dur > 0:         # עיגול לקפיצה הקרובה של 0.5
+        default_duration = round((max_dur / 2.0) * 2) / 2
+        
+    # טופס ללא clear_on_submit למניעת דריסת שעת ההתחלה הידנית
+    with st.form(" maple_training_form "):
         # שורה 1: תאריך ושעת התחלה (הזנה רטרואקטיבית אמינה)
         c_date, c_time = st.columns(2)
         with c_date:
-          d_date = st.date_input(
+            d_date = st.date_input(
               "📅 תאריך האימון",
               value=now_il.date(),
               key="train_manual_date_input",
           )
         with c_time:
           # ברירת מחדל: השעה הנוכחית (ללא הזזות מיותרות)
-          start_time = st.time_input(
+            start_time = st.time_input(
               "⏰ שעת התחלה (יציאה)",
               value=now_il.time(),
               key="train_manual_start_time",
@@ -246,8 +243,8 @@ with tab1:
                 1: "1 - רגועה לחלוטין 🟢",
                 2: "2 - אי-שקט קל 🟡",
                 3: "3 - לחץ בינוני 🟠",
-                4: "4 - מצוקה גבוהה 🔴",
-                5: "5 - פאניקה / נביחות 🚨",
+                4: "4 - מצוקה גבוהה, נזקים 🔴",
+                5: "5 - פאניקה 🚨",
             }[x],
         )
 
@@ -255,12 +252,9 @@ with tab1:
         quick_tags = st.multiselect(
             "🏷️ מה היה באימון?",
             [
-                "קונג / ליקימט קפוא 🦴",
                 "עצם לעיסה 🥩",
                 "ללא העשרה / בלי אוכל 🥣",
                 "ישנה רגועה במיטה 😴",
-                "נשכבה על הספה 🛋️",
-                "עמדה ליד הדלת בהתחלה 🚪",
                 "נביחות / יללות ביציאה 🔊",
                 "עייפה אחרי טיול ארוך 🦮",
             ],
@@ -277,9 +271,9 @@ with tab1:
             "שמור אימון 💾", use_container_width=True
         )
         if submitted:
-          if total_duration <= 0:
+            if total_duration <= 0:
             st.error("משך האימון חייב להיות גדול מ-0!")
-          else:
+            else:
             # איחוד תגיות והערה חופשית
             notes_parts = []
             if quick_tags:
@@ -303,7 +297,8 @@ with tab1:
                   " שעות)"
               )
               st.rerun()
-        st.divider()
+        
+    st.divider()
     
     # --- חלק ג: עריכת היסטוריה בתוך תפריט מתקפל ---
     # ה-expander יהיה סגור בברירת מחדל (expanded=False)
