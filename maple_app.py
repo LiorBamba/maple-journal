@@ -12,8 +12,9 @@ IL_TZ = pytz.timezone('Asia/Jerusalem')
 # --- הגדרות דף ---
 st.set_page_config(page_title="היומן של מייפל", page_icon="🐕", layout="wide")
 
-# ... (ה-CSS נשאר אותו דבר, אין צורך לשנות) ...
-st.markdown("""
+# ... (ה-CSS נשאר אותו דבר, אין צורך לשנות - תיקון תצוגת תאריכים ושעות) ...
+st.markdown(
+    """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap');
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
@@ -22,11 +23,22 @@ st.markdown("""
         font-family: 'Rubik', sans-serif;
     }
     [data-baseweb="tab-list"] { direction: RTL; display: flex; justify-content: flex-end; }
-    input, textarea, .stSelectbox, .stNumberInput { direction: RTL; text-align: right; }
+    input, textarea, .stSelectbox { direction: RTL; text-align: right; }
+    
+    /* מניעת היפוך שעות, תאריכים ומספרים בגלל עברית */
+    [data-testid="stTimeInput"] input, 
+    [data-testid="stDateInput"] input, 
+    [data-testid="stNumberInput"] input {
+        direction: ltr !important;
+        text-align: center !important;
+    }
+
     [data-testid="stSlider"] { direction: ltr; }
     .stButton button { width: 100%; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
 
 # --- חיבור לגוגל שיטס ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1URUI3gpIa2wx_gQdEawCDRp8Tw4h20gun2zeegC-Oz8"
