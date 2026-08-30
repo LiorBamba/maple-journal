@@ -218,8 +218,6 @@ with tab1:
           key="train_duration_input",
       )
 
-    total_duration = round(float(dur_h) + float(dur_q), 2)
-
     # שורת סיכום
     if total_duration > 0 and start_time:
       dummy_dt = datetime.combine(d_date, start_time) + timedelta(
