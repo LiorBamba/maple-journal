@@ -17,35 +17,21 @@ st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap');
-    
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         direction: RTL;
         text-align: right;
         font-family: 'Rubik', sans-serif;
     }
-    
-    [data-baseweb="tab-list"] { 
-        direction: RTL; 
-        display: flex; 
-        justify-content: flex-end; 
-    }
-    
-    /* שדות טקסט חופשי */
-    textarea, [data-testid="stTextInput"] input {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* תאריכים, שעות ומספרים - LTR כדי שהספרות לא יתהפכו */
-    [data-testid="stTimeInput"] input,
-    [data-testid="stDateInput"] input,
-    [data-testid="stNumberInput"] input {
+    [data-baseweb="tab-list"] { direction: RTL; display: flex; justify-content: flex-end; }
+    input, textarea, .stSelectbox, .stNumberInput { direction: RTL; text-align: right; }
+    [data-testid="stSlider"] { direction: ltr; }
+    .stButton button { width: 100%; }
+
+    /* תיקון נקודתי ובלעדי לשעון בלבד */
+    [data-testid="stTimeInput"] * {
         direction: ltr !important;
         text-align: center !important;
     }
-
-    [data-testid="stSlider"] { direction: ltr; }
-    .stButton button { width: 100%; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -216,11 +202,8 @@ with tab1:
     c_date, c_time = st.columns(2)
     with c_date:
       d_date = st.date_input(
-    "📅 תאריך האימון",
-    value=now_il.date(),
-    format="DD/MM/YYYY",
-    key="train_manual_date_input",
-)
+          "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
+      )
     with c_time:
       start_time = st.time_input(
           "⏰ שעת התחלה (יציאה)",
