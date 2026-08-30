@@ -194,19 +194,21 @@ with tab1:
     if pd.notna(max_dur) and max_dur > 0:
       default_duration = round((max_dur / 2.0) * 4) / 4
 
-  with st.form("maple_training_form"):
-    # שורה 1: תאריך ושעת התחלה
-    c_date, c_time = st.columns(2)
-    with c_date:
-      d_date = st.date_input(
-          "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
-      )
-    with c_time:
-      start_time = st.time_input(
-          "⏰ שעת התחלה (יציאה)",
-          value=now_il.time(),
-          key="train_manual_start_time",
-      )
+  # שימוש ב-container מאפשר תגובתיות חיה (ריאקטיביות לשורת הסיכום)
+    with st.container(border=True):
+      # שורה 1: תאריך ושעת התחלה
+      c_date, c_time = st.columns(2)
+      with c_date:
+        d_date = st.date_input(
+            "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
+        )
+      with c_time:
+        start_time = st.time_input(
+            "⏰ שעת התחלה (יציאה)",
+            value=now_il.time(),
+            key="train_manual_start_time",
+        )
+        
 # שורה 2: שדה משך זמן מאוחד בשעות (בקפיצות של רבע שעה)
       total_duration = st.number_input(
           "⏳ משך זמן (שעות)",
