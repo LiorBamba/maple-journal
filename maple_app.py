@@ -184,18 +184,15 @@ with tab1:
 
   now_il = datetime.now(IL_TZ)
 
-  # חישוב דינמי של אמצע השיא מתוך הנתונים הקיימים
+    # חישוב דינמי של אמצע השיא מתוך הנתונים הקיימים
   df_train_existing = get_data("Training")
-  default_duration = 2.5  # ברירת מחדל
+  default_duration = 2.5  # ברירת מחדל בטוחה
   if not df_train_existing.empty and "Duration" in df_train_existing.columns:
     max_dur = pd.to_numeric(
         df_train_existing["Duration"], errors="coerce"
     ).max()
     if pd.notna(max_dur) and max_dur > 0:
-      default_duration = round((max_dur / 2.0) * 4) / 4  # עיגול לרבע שעה
-
-  default_hours = int(default_duration)
-  default_frac = round(default_duration - default_hours, 2)
+      default_duration = round((max_dur / 2.0) * 4) / 4
 
   with st.form("maple_training_form"):
     # שורה 1: תאריך ושעת התחלה
@@ -210,27 +207,15 @@ with tab1:
           value=now_il.time(),
           key="train_manual_start_time",
       )
-
-    # שורה 2: שני כפתורי +/- (שעות שלמות ורבעי שעה)
-    c_hours, c_quarters = st.columns(2)
-    with c_hours:
-      dur_h = st.number_input(
-          "⏳ שעות (±1.0)",
-          min_value=0,
-          max_value=12,
-          value=default_hours,
-          step=1,
-          key="train_h_input",
-      )
-    with c_quarters:
-      dur_q = st.number_input(
-          "⏱️ רבעי שעה (±0.25)",
-          min_value=0.0,
-          max_value=0.75,
-          value=default_frac,
+# שורה 2: שדה משך זמן מאוחד בשעות (בקפיצות של רבע שעה)
+      total_duration = st.number_input(
+          "⏳ משך זמן (שעות)",
+          min_value=0.25,
+          max_value=12.0,
+          value=float(default_duration),
           step=0.25,
           format="%.2f",
-          key="train_q_input",
+          key="train_duration_input",
       )
 
     total_duration = round(float(dur_h) + float(dur_q), 2)
