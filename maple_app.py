@@ -180,59 +180,56 @@ with tab1:
     default_duration = 2.5  # ברירת מחדל קבועה בטוחה
     if not df_train_existing.empty and "Duration" in df_train_existing.columns:
         max_dur = pd.to_numeric(df_train_existing["Duration"], errors="coerce").max()
-        if pd.notna(max_dur) and max_dur > 0:         # עיגול לקפיצה הקרובה של 0.5
-        default_duration = round((max_dur / 2.0) * 2) / 2
-        
+        if pd.notna(max_dur) and max_dur > 0:
+            default_duration = round((max_dur / 2.0) * 2) / 2
+
     # טופס ללא clear_on_submit למניעת דריסת שעת ההתחלה הידנית
-    with st.form(" maple_training_form "):
+    with st.form("maple_training_form"):
         # שורה 1: תאריך ושעת התחלה (הזנה רטרואקטיבית אמינה)
         c_date, c_time = st.columns(2)
         with c_date:
             d_date = st.date_input(
-              "📅 תאריך האימון",
-              value=now_il.date(),
-              key="train_manual_date_input",
-          )
+                "📅 תאריך האימון",
+                value=now_il.date(),
+                key="train_manual_date_input",
+            )
         with c_time:
-          # ברירת מחדל: השעה הנוכחית (ללא הזזות מיותרות)
+            # ברירת מחדל: השעה הנוכחית
             start_time = st.time_input(
-              "⏰ שעת התחלה (יציאה)",
-              value=now_il.time(),
-              key="train_manual_start_time",
-          )
+                "⏰ שעת התחלה (יציאה)",
+                value=now_il.time(),
+                key="train_manual_start_time",
+            )
 
         # שורה 2: משך זמן בשעות (קפיצות של חצי שעה) + דיוק דקות
         c_hours, c_mins = st.columns(2)
         with c_hours:
-          duration_hours_base = st.number_input(
-              "⏳ שעות שלמות / חצאים",
-              min_value=0.0,
-              max_value=12.0,
-              value=float(default_duration),
-              step=0.5,
-              format="%.1f",
-          )
+            duration_hours_base = st.number_input(
+                "⏳ שעות שלמות / חצאים",
+                min_value=0.0,
+                max_value=12.0,
+                value=float(default_duration),
+                step=0.5,
+                format="%.1f",
+            )
         with c_mins:
-          extra_minutes = st.selectbox(
-              "➕ תוספת דקות",
-              options=[0, 15, 30, 45],
-              index=0,
-              key="train_extra_mins",
-          )
+            extra_minutes = st.selectbox(
+                "➕ תוספת דקות",
+                options=[0, 15, 30, 45],
+                index=0,
+                key="train_extra_mins",
+            )
 
         # חישוב משך הזמן הכולל בשעות עשרוניות
         total_duration = round(duration_hours_base + (extra_minutes / 60.0), 2)
 
         # שורת תצוגה מקדימה נוחה: שעת סיום מחושבת
         if total_duration > 0 and start_time:
-          dummy_dt = datetime.combine(d_date, start_time) + timedelta(
-              hours=total_duration
-          )
-          calc_end_str = dummy_dt.strftime("%H:%M")
-          st.caption(
-              f"💡 **סיכום:** יציאה ב-**{start_time.strftime('%H:%M')}** ⬅️ חזרה"
-              f" משוערת ב-**{calc_end_str}** (סך הכל **{total_duration}** שעות)"
-          )
+            dummy_dt = datetime.combine(d_date, start_time) + timedelta(hours=total_duration)
+            calc_end_str = dummy_dt.strftime("%H:%M")
+            st.caption(
+                f"💡 **סיכום:** יציאה ב-**{start_time.strftime('%H:%M')}** ⬅️ חזרה משוערת ב-**{calc_end_str}** (סך הכל **{total_duration}** שעות)"
+            )
 
         # שורה 3: מדד לחץ
         d_stress = st.select_slider(
@@ -248,7 +245,7 @@ with tab1:
             }[x],
         )
 
-        # שורה 4: תגיות רלוונטיות באמת
+        # שורה 4: תגיות רלוונטיות
         quick_tags = st.multiselect(
             "🏷️ מה היה באימון?",
             [
@@ -267,36 +264,31 @@ with tab1:
         )
 
         # כפתור שמירה
-        submitted = st.form_submit_button(
-            "שמור אימון 💾", use_container_width=True
-        )
+        submitted = st.form_submit_button("שמור אימון 💾", use_container_width=True)
         if submitted:
             if total_duration <= 0:
-            st.error("משך האימון חייב להיות גדול מ-0!")
+                st.error("משך האימון חייב להיות גדול מ-0!")
             else:
-            # איחוד תגיות והערה חופשית
-            notes_parts = []
-            if quick_tags:
-              notes_parts.append(", ".join(quick_tags))
-            if custom_note.strip():
-              notes_parts.append(custom_note.strip())
-            final_note = " | ".join(notes_parts)
+                # איחוד תגיות והערה חופשית
+                notes_parts = []
+                if quick_tags:
+                    notes_parts.append(", ".join(quick_tags))
+                if custom_note.strip():
+                    notes_parts.append(custom_note.strip())
+                final_note = " | ".join(notes_parts)
 
-            formatted_time = start_time.strftime("%H:%M")
-            row = [
-                str(d_date),
-                formatted_time,
-                total_duration,
-                d_stress,
-                final_note,
-            ]
+                formatted_time = start_time.strftime("%H:%M")
+                row = [
+                    str(d_date),
+                    formatted_time,
+                    total_duration,
+                    d_stress,
+                    final_note,
+                ]
 
-            if append_row("Training", row):
-              st.success(
-                  f"האימון נשמר בהצלחה! ({formatted_time}, {total_duration}"
-                  " שעות)"
-              )
-              st.rerun()
+                if append_row("Training", row):
+                    st.success(f"האימון נשמר בהצלחה! ({formatted_time}, {total_duration} שעות)")
+                    st.rerun()
         
     st.divider()
     
