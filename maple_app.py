@@ -217,8 +217,11 @@ with tab1:
     c_date, c_time = st.columns(2)
     with c_date:
       d_date = st.date_input(
-          "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
-      )
+    "📅 תאריך האימון",
+    value=now_il.date(),
+    format="DD/MM/YYYY",
+    key="train_manual_date_input",
+)
     with c_time:
       start_time = st.time_input(
           "⏰ שעת התחלה (יציאה)",
