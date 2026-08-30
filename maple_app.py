@@ -30,22 +30,19 @@ st.markdown(
         justify-content: flex-end; 
     }
     
-    /* שדות טקסט בעברית */
-    textarea, [data-testid="stTextInput"] input {
-        direction: RTL !important;
+    /* שדות טקסט חופשי והערות - RTL מימין לשמאל */
+    [data-testid="stTextInput"] input,
+    [data-testid="stTextArea"] textarea {
+        direction: rtl !important;
         text-align: right !important;
     }
     
-    /* תיקון היפוך זמנים, תאריכים ומספרים */
+    /* שעה, תאריך ומספרים - LTR כדי שתווים וספרות לא יתהפכו */
     [data-testid="stTimeInput"] input,
     [data-testid="stDateInput"] input,
-    [data-testid="stNumberInput"] input,
-    [data-testid="stTimeInput"] div,
-    [data-testid="stDateInput"] div,
-    [data-testid="stNumberInput"] div {
+    [data-testid="stNumberInput"] input {
         direction: ltr !important;
-        text-align: left !important;
-        unicode-bidi: isolate !important;
+        text-align: center !important;
     }
 
     [data-testid="stSlider"] { direction: ltr; }
