@@ -208,7 +208,7 @@ with tab1:
             value=now_il.time(),
             key="train_manual_start_time",
         )
-        
+
 # שורה 2: שדה משך זמן מאוחד בשעות (בקפיצות של רבע שעה)
       total_duration = st.number_input(
           "⏳ משך זמן (שעות)",
@@ -252,8 +252,7 @@ with tab1:
     )
 
     # כפתור שמירה
-    submitted = st.form_submit_button("שמור אימון 💾", use_container_width=True)
-    if submitted:
+    if st.button("שמור אימון 💾", type="primary", use_container_width=True):
       if total_duration <= 0:
         st.error("משך האימון חייב להיות גדול מ-0!")
       else:
