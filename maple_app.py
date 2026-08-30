@@ -30,17 +30,21 @@ st.markdown(
         justify-content: flex-end; 
     }
     
-    /* תאריכים ושדות טקסט נשארים ב-RTL טבעי */
-    input, textarea, .stSelectbox, [data-testid="stDateInput"] input { 
-        direction: RTL !important; 
-        text-align: right !important; 
+    /* שדות טקסט בעברית */
+    textarea, [data-testid="stTextInput"] input {
+        direction: RTL !important;
+        text-align: right !important;
     }
     
-    /* רק שעה ומספרים מוצגים ב-LTR כדי שלא יתהפכו */
+    /* תיקון היפוך זמנים, תאריכים ומספרים */
     [data-testid="stTimeInput"] input,
-    [data-testid="stNumberInput"] input {
+    [data-testid="stDateInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTimeInput"] div,
+    [data-testid="stDateInput"] div,
+    [data-testid="stNumberInput"] div {
         direction: ltr !important;
-        text-align: center !important;
+        text-align: left !important;
         unicode-bidi: isolate !important;
     }
 
