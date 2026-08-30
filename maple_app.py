@@ -170,43 +170,139 @@ tab1, tab2, tab3 = st.tabs(["🏃 הישארות לבד", "🦴 האכלות", "
 
 # --- טאב 1: אימונים (Training) ---
 with tab1:
-    st.header("תיעוד חשיפה ונטישות")
-    
-# --- טופס הזנה חכם: חישוב זמנים אוטומטי ---
-    # --- טופס הזנה פשוט ומותאם לנייד ---
-    st.subheader("📝 הוספת אימון חדש")
-    
-    with st.form("simple_train_form", clear_on_submit=True):
-        now = datetime.now(IL_TZ)
-        
-        # שורה ראשונה: תאריך ושעת התחלה
-        c1, c2 = st.columns(2)
-        with c1:
-            d_date = st.date_input("📅 תאריך", now.date())
-        with c2:
-            # שעת התחלה פשוטה (HH:MM)
-            default_start = (now - timedelta(hours=1)).time()
-            start_time = st.time_input("⏰ שעת התחלה", value=default_start)
+      st.header("תיעוד חשיפה ונטישות")
+      st.subheader("📝 הוספת אימון חדש")
 
-        # שורה שנייה: משך זמן עם כפתורי פלוס/מינוס
-        # ה-step=0.25 מאפשר לקפוץ ברבעי שעות בקליק
-        d_dur = st.number_input("⏳ משך זמן (בשעות)", min_value=0.0, value=1.0, step=0.25, format="%.2f")
-        
-        # שורה שלישית: מדד לחץ (סליידר הוא הכי נוח למגע אצבע)
-        d_stress = st.select_slider("😰 מדד לחץ (1-רגועה, 5-פאניקה)", options=[1, 2, 3, 4, 5], value=3)
-        
-        # הערות
-        d_note = st.text_area("📝 הערות")
-        
-        # כפתור שמירה רחב
-        if st.form_submit_button("שמור אימון 💾", use_container_width=True):
-            # עיצוב השעה לפורמט קריא של HH:MM
+      now_il = datetime.now(IL_TZ)
+
+      # חישוב דינמי של אמצע השיא מתוך הנתונים הקיימים (אם קיימים)
+      df_train_existing = get_data("Training")
+      default_duration = 2.5  # ברירת מחדל קבועה בטוחה
+      if not df_train_existing.empty and "Duration" in df_train_existing.columns:
+        max_dur = pd.to_numeric(
+            df_train_existing["Duration"], errors="coerce"
+        ).max()
+        if pd.notna(max_dur) and max_dur > 0:
+          # עיגול לקפיצה הקרובה של 0.5
+          default_duration = round((max_dur / 2.0) * 2) / 2
+
+      # טופס ללא clear_on_submit למניעת דריסת שעת ההתחלה הידנית
+      with st.form(" maple_training_form "):
+        # שורה 1: תאריך ושעת התחלה (הזנה רטרואקטיבית אמינה)
+        c_date, c_time = st.columns(2)
+        with c_date:
+          d_date = st.date_input(
+              "📅 תאריך האימון",
+              value=now_il.date(),
+              key="train_manual_date_input",
+          )
+        with c_time:
+          # ברירת מחדל: השעה הנוכחית (ללא הזזות מיותרות)
+          start_time = st.time_input(
+              "⏰ שעת התחלה (יציאה)",
+              value=now_il.time(),
+              key="train_manual_start_time",
+          )
+
+        # שורה 2: משך זמן בשעות (קפיצות של חצי שעה) + דיוק דקות
+        c_hours, c_mins = st.columns(2)
+        with c_hours:
+          duration_hours_base = st.number_input(
+              "⏳ שעות שלמות / חצאים",
+              min_value=0.0,
+              max_value=12.0,
+              value=float(default_duration),
+              step=0.5,
+              format="%.1f",
+          )
+        with c_mins:
+          extra_minutes = st.selectbox(
+              "➕ תוספת דקות",
+              options=[0, 15, 30, 45],
+              index=0,
+              key="train_extra_mins",
+          )
+
+        # חישוב משך הזמן הכולל בשעות עשרוניות
+        total_duration = round(duration_hours_base + (extra_minutes / 60.0), 2)
+
+        # שורת תצוגה מקדימה נוחה: שעת סיום מחושבת
+        if total_duration > 0 and start_time:
+          dummy_dt = datetime.combine(d_date, start_time) + timedelta(
+              hours=total_duration
+          )
+          calc_end_str = dummy_dt.strftime("%H:%M")
+          st.caption(
+              f"💡 **סיכום:** יציאה ב-**{start_time.strftime('%H:%M')}** ⬅️ חזרה"
+              f" משוערת ב-**{calc_end_str}** (סך הכל **{total_duration}** שעות)"
+          )
+
+        # שורה 3: מדד לחץ
+        d_stress = st.select_slider(
+            "😰 מדד לחץ",
+            options=[1, 2, 3, 4, 5],
+            value=2,
+            format_func=lambda x: {
+                1: "1 - רגועה לחלוטין 🟢",
+                2: "2 - אי-שקט קל 🟡",
+                3: "3 - לחץ בינוני 🟠",
+                4: "4 - מצוקה גבוהה 🔴",
+                5: "5 - פאניקה / נביחות 🚨",
+            }[x],
+        )
+
+        # שורה 4: תגיות רלוונטיות באמת
+        quick_tags = st.multiselect(
+            "🏷️ מה היה באימון?",
+            [
+                "קונג / ליקימט קפוא 🦴",
+                "עצם לעיסה 🥩",
+                "ללא העשרה / בלי אוכל 🥣",
+                "ישנה רגועה במיטה 😴",
+                "נשכבה על הספה 🛋️",
+                "עמדה ליד הדלת בהתחלה 🚪",
+                "נביחות / יללות ביציאה 🔊",
+                "עייפה אחרי טיול ארוך 🦮",
+            ],
+            default=[],
+        )
+
+        custom_note = st.text_input(
+            "📝 הערה נוספת (אופציונלי)",
+            placeholder="למשל: נשארה רגועה רוב הזמן...",
+        )
+
+        # כפתור שמירה
+        submitted = st.form_submit_button(
+            "שמור אימון 💾", use_container_width=True
+        )
+        if submitted:
+          if total_duration <= 0:
+            st.error("משך האימון חייב להיות גדול מ-0!")
+          else:
+            # איחוד תגיות והערה חופשית
+            notes_parts = []
+            if quick_tags:
+              notes_parts.append(", ".join(quick_tags))
+            if custom_note.strip():
+              notes_parts.append(custom_note.strip())
+            final_note = " | ".join(notes_parts)
+
             formatted_time = start_time.strftime("%H:%M")
-            row = [str(d_date), formatted_time, round(d_dur, 2), d_stress, d_note]
-            
+            row = [
+                str(d_date),
+                formatted_time,
+                total_duration,
+                d_stress,
+                final_note,
+            ]
+
             if append_row("Training", row):
-                st.success("האימון נשמר!")
-                st.rerun()
+              st.success(
+                  f"האימון נשמר בהצלחה! ({formatted_time}, {total_duration}"
+                  " שעות)"
+              )
+              st.rerun()
 
     st.divider()
     
