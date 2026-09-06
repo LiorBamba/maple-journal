@@ -194,83 +194,104 @@ with tab1:
     if pd.notna(max_dur) and max_dur > 0:
       default_duration = round((max_dur / 2.0) * 4) / 4
 
-  # שימוש ב-container מאפשר תגובתיות חיה (ריאקטיביות לשורת הסיכום)
-  with st.container(border=True):
-    # שורה 1: תאריך ושעת התחלה
-    c_date, c_time = st.columns(2)
-    with c_date:
-      d_date = st.date_input(
-          "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
-      )
-    with c_time:
-      start_time = st.time_input(
-          "⏰ שעת התחלה (יציאה)",
-          value=now_il.time(),
-          key="train_manual_start_time",
-      )
+ # שימוש ב-container מאפשר תגובתיות חיה (ריאקטיביות לשורת הסיכום)
+    with st.container(border=True):
+      # הצגת הודעת הצלחה אם נשמר אימון ברענון הקודם
+      if "train_success_msg" in st.session_state:
+        st.success(st.session_state.pop("train_success_msg"))
 
-    # שורה 2: שדה משך זמן מאוחד בשעות (בקפיצות של רבע שעה)
-    total_duration = st.number_input(
-        "⏳ משך זמן (שעות)",
-        min_value=0.25,
-        max_value=12.0,
-        value=float(default_duration),
-        step=0.25,
-        format="%.2f",
-        key="train_duration_input",
-    )
+      # שורה 1: תאריך ושעת התחלה
+      c_date, c_time = st.columns(2)
+      with c_date:
+        d_date = st.date_input(
+            "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
+        )
+      with c_time:
+        start_time = st.time_input(
+            "⏰ שעת התחלה (יציאה)",
+            value=now_il.time(),
+            key="train_manual_start_time",
+        )
 
-    # שורת סיכום שמתעדכנת מיידית בלייב
-    if total_duration > 0 and start_time:
-      dummy_dt = datetime.combine(d_date, start_time) + timedelta(
-          hours=total_duration
-      )
-      calc_end_str = dummy_dt.strftime("%H:%M")
-      start_str = start_time.strftime("%H:%M")
-      st.info(
-          f"💡 יציאה: **{start_str}** | חזרה משוערת: **{calc_end_str}** | סה״כ:"
-          f" **{total_duration:.2f} שעות**"
+      # שורה 2: שדה משך זמן מאוחד בשעות (בקפיצות של רבע שעה)
+      total_duration = st.number_input(
+          "⏳ משך זמן (שעות)",
+          min_value=0.25,
+          max_value=12.0,
+          value=float(default_duration),
+          step=0.25,
+          format="%.2f",
+          key="train_duration_input",
       )
 
-    # שורה 3: מדד לחץ
-    d_stress = st.select_slider(
-        "😰 מדד לחץ",
-        options=[1, 2, 3, 4, 5],
-        value=2,
-        format_func=lambda x: {
-            1: "1 - רגועה לחלוטין 🟢",
-            2: "2 - אי-שקט קל 🟡",
-            3: "3 - לחץ בינוני 🟠",
-            4: "4 - מצוקה גבוהה 🔴",
-            5: "5 - פאניקה 🚨",
-        }[x],
-    )
+      # שורת סיכום שמתעדכנת מיידית בלייב
+      if total_duration > 0 and start_time:
+        dummy_dt = datetime.combine(d_date, start_time) + timedelta(
+            hours=total_duration
+        )
+        calc_end_str = dummy_dt.strftime("%H:%M")
+        start_str = start_time.strftime("%H:%M")
+        st.info(
+            f"💡 יציאה: **{start_str}** | חזרה משוערת: **{calc_end_str}** |"
+            f" סה״כ: **{total_duration:.2f} שעות**"
+        )
 
-    # שורה 4: שדה הערות ישיר
-    d_note = st.text_input(
-        "📝 הערות",
-        placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)",
-    )
+      # שורה 3: מדד לחץ
+      d_stress = st.select_slider(
+          "😰 מדד לחץ",
+          options=[1, 2, 3, 4, 5],
+          value=2,
+          format_func=lambda x: {
+              1: "1 - רגועה לחלוטין 🟢",
+              2: "2 - אי-שקט קל 🟡",
+              3: "3 - לחץ בינוני 🟠",
+              4: "4 - מצוקה גבוהה 🔴",
+              5: "5 - פאניקה 🚨",
+          }[x],
+          key="train_stress_input",
+      )
 
-    # כפתור שמירה
-    if st.button("שמור אימון 💾", type="primary", use_container_width=True):
-      if total_duration <= 0:
-        st.error("משך האימון חייב להיות גדול מ-0!")
-      else:
-        formatted_time = start_time.strftime("%H:%M")
-        row = [
-            str(d_date),
-            formatted_time,
-            round(total_duration, 2),
-            d_stress,
-            d_note.strip(),
-        ]
-        if append_row("Training", row):
-          st.success(
-              f"האימון נשמר בהצלחה! ({formatted_time}, {total_duration:.2f}"
-              " שעות)"
-          )
-          st.rerun()
+      # שורה 4: שדה הערות ישיר
+      d_note = st.text_input(
+          "📝 הערות",
+          placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)",
+          key="train_note_input",
+      )
+
+      # כפתור שמירה
+      if st.button(
+          "שמור אימון 💾", type="primary", use_container_width=True
+      ):
+        if total_duration <= 0:
+          st.error("משך האימון חייב להיות גדול מ-0!")
+        else:
+          formatted_time = start_time.strftime("%H:%M")
+          row = [
+              str(d_date),
+              formatted_time,
+              round(total_duration, 2),
+              d_stress,
+              d_note.strip(),
+          ]
+          if append_row("Training", row):
+            # שמירת הודעת החיווי לרענון הבא
+            st.session_state["train_success_msg"] = (
+                f"✅ האימון נשמר בהצלחה! ({formatted_time},"
+                f" {total_duration:.2f} שעות)"
+            )
+
+            # מחיקת ערכי הטופס מהזיכרון כדי שייפתח ריק ונקי
+            for k in [
+                "train_manual_date_input",
+                "train_manual_start_time",
+                "train_duration_input",
+                "train_stress_input",
+                "train_note_input",
+            ]:
+              if k in st.session_state:
+                del st.session_state[k]
+
+            st.rerun()
 
   st.divider()
 
