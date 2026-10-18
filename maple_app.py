@@ -308,14 +308,19 @@ with tab1:
         df_chart["CleanDate"] + " " + time_series, errors="coerce"
     )
     df_chart["Date"] = pd.to_datetime(df_chart["CleanDate"], errors="coerce")
+
+    # --- תיקון: המרה מפורשת של משך הזמן (Duration) למספר ---
+    df_chart["Duration"] = pd.to_numeric(df_chart["Duration"], errors="coerce")
+
     df_chart = df_chart.dropna(subset=["FullDate", "Duration"]).sort_values(
         "FullDate"
     )
 
     stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"
-    df_chart["Weighted_Duration"] = df_chart["Duration"] * (
-        pd.to_numeric(df_chart[stress_col], errors="coerce").fillna(3) / 3.0
-    )
+    stress_numeric = pd.to_numeric(df_chart[stress_col], errors="coerce").fillna(3)
+
+    # חישוב משך זמן משוקלל (עכשיו שניהם מספרים תקינים)
+    df_chart["Weighted_Duration"] = df_chart["Duration"] * (stress_numeric / 3.0)
 
     # חישוב עצימות יומית
     daily = df_chart.groupby("Date")["Weighted_Duration"].sum().reset_index()
