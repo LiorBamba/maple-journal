@@ -179,37 +179,35 @@ tab1, tab2, tab3 = st.tabs(["🏃 הישארות לבד", "🦴 האכלות", "
 
 # --- טאב 1: אימונים (Training) ---
 with tab1:
-  st.header("תיעוד חשיפה ונטישות")
-  st.subheader("📝 הוספת אימון חדש")
+  st.header("תיעוד חשיפה ונטישות")[cite: 2]
+  st.subheader("📝 הוספת אימון חדש")[cite: 2]
 
-  now_il = datetime.now(IL_TZ)
+  now_il = datetime.now(IL_TZ)[cite: 2]
 
   # טעינת נתונים מסודרת לכל הטאב
-  df_all = get_data("Training")
+  df_all = get_data("Training")[cite: 2]
 
   # חישוב דינמי של אמצע השיא מתוך הנתונים הקיימים
-  default_duration = 2.5  # ברירת מחדל בטוחה
-  if not df_all.empty and "Duration" in df_all.columns:
-    max_dur = pd.to_numeric(df_all["Duration"], errors="coerce").max()
-    if pd.notna(max_dur) and max_dur > 0:
-      default_duration = round((max_dur / 2.0) * 4) / 4
+  default_duration = 2.5  # ברירת מחדל בטוחה[cite: 2]
+  if not df_all.empty and "Duration" in df_all.columns:[cite: 2]
+    max_dur = pd.to_numeric(df_all["Duration"], errors="coerce").max()[cite: 2]
+    if pd.notna(max_dur) and max_dur > 0:[cite: 2]
+      default_duration = round((max_dur / 2.0) * 4) / 4[cite: 2]
 
   # container להזנת אימון חדש
-  with st.container(border=True):
-    # שורה 1: תאריך ושעת התחלה
-    c_date, c_time = st.columns(2)
+  with st.container(border=True):[cite: 2]
+    c_date, c_time = st.columns(2)[cite: 2]
     with c_date:
       d_date = st.date_input(
-          "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
+          "📅 תאריך", value=now_il.date(), key="train_manual_date_input"[cite: 2]
       )
     with c_time:
       start_time = st.time_input(
           "⏰ שעת התחלה (יציאה)",
           value=now_il.time(),
-          key="train_manual_start_time",
+          key="train_manual_start_time",[cite: 2]
       )
 
-    # שורה 2: משך זמן בשעות
     total_duration = st.number_input(
         "⏳ משך זמן (שעות)",
         min_value=0.25,
@@ -217,22 +215,20 @@ with tab1:
         value=float(default_duration),
         step=0.25,
         format="%.2f",
-        key="train_duration_input",
+        key="train_duration_input",[cite: 2]
     )
 
-    # שורת סיכום
-    if total_duration > 0 and start_time:
+    if total_duration > 0 and start_time:[cite: 2]
       dummy_dt = datetime.combine(d_date, start_time) + timedelta(
-          hours=total_duration
+          hours=total_duration[cite: 2]
       )
-      calc_end_str = dummy_dt.strftime("%H:%M")
-      start_str = start_time.strftime("%H:%M")
+      calc_end_str = dummy_dt.strftime("%H:%M")[cite: 2]
+      start_str = start_time.strftime("%H:%M")[cite: 2]
       st.info(
-          f"💡 יציאה: **{start_str}** | חזרה משוערת: **{calc_end_str}** | סה״כ:"
-          f" **{total_duration:.2f} שעות**"
+          f"💡 יציאה: **{start_str}** | חזרה משוערת: **{calc_end_str}** | סה״כ:"[cite: 2]
+          f" **{total_duration:.2f} שעות**"[cite: 2]
       )
 
-    # שורה 3: מדד לחץ
     d_stress = st.select_slider(
         "😰 מדד לחץ",
         options=[1, 2, 3, 4, 5],
@@ -243,51 +239,48 @@ with tab1:
             3: "3 - לחץ בינוני 🟠",
             4: "4 - מצוקה גבוהה 🔴",
             5: "5 - פאניקה 🚨",
-        }[x],
+        }[x],[cite: 2]
     )
 
-    # שורה 4: הערות
     d_note = st.text_input(
         "📝 הערות",
-        placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)",
+        placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)",[cite: 2]
     )
 
-    # כפתור שמירה
-    if st.button("שמור אימון 💾", type="primary", use_container_width=True):
-      if total_duration <= 0:
-        st.error("משך האימון חייב להיות גדול מ-0!")
+    if st.button("שמור אימון 💾", type="primary", use_container_width=True):[cite: 2]
+      if total_duration <= 0:[cite: 2]
+        st.error("משך האימון חייב להיות גדול מ-0!")[cite: 2]
       else:
-        formatted_time = start_time.strftime("%H:%M")
+        formatted_time = start_time.strftime("%H:%M")[cite: 2]
         row = [
             str(d_date),
             formatted_time,
             round(total_duration, 2),
             d_stress,
-            d_note.strip(),
+            d_note.strip(),[cite: 2]
         ]
-        if append_row("Training", row):
+        if append_row("Training", row):[cite: 2]
           st.success(
-              f"האימון נשמר בהצלחה! ({formatted_time}, {total_duration:.2f}"
-              " שעות)"
+              f"האימון נשמר בהצלחה! ({formatted_time}, {total_duration:.2f}"[cite: 2]
+              " שעות)"[cite: 2]
           )
-          st.rerun()
+          st.rerun()[cite: 2]
 
   # --- הגרף המאוחד ---
-  st.divider()
+  st.divider()[cite: 2]
   if (
       not df_all.empty
       and "Date" in df_all.columns
-      and "Duration" in df_all.columns
+      and "Duration" in df_all.columns[cite: 2]
   ):
-    import numpy as np
-    import plotly.graph_objects as go
+    import numpy as np[cite: 2]
+    import plotly.graph_objects as go[cite: 2]
 
-    df_chart = df_all.copy()
+    df_chart = df_all.copy()[cite: 2]
 
-    # סידור תאריכים ושעות
     df_chart["CleanDate"] = pd.to_datetime(
         df_chart["Date"], errors="coerce"
-    ).dt.strftime("%Y-%m-%d")
+    ).dt.strftime("%Y-%m-%d")[cite: 2]
 
     def parse_time(t):
       t = str(t).strip().split(".")[0]
@@ -299,33 +292,31 @@ with tab1:
         return f"{t[:2]}:{t[2:]}"
       return "12:00"
 
-    if "Time" in df_chart.columns:
-      time_series = df_chart["Time"].apply(parse_time)
+    if "Time" in df_chart.columns:[cite: 2]
+      time_series = df_chart["Time"].apply(parse_time)[cite: 2]
     else:
       time_series = "12:00"
 
     df_chart["FullDate"] = pd.to_datetime(
-        df_chart["CleanDate"] + " " + time_series, errors="coerce"
+        df_chart["CleanDate"] + " " + time_series, errors="coerce"[cite: 2]
     )
-    df_chart["Date"] = pd.to_datetime(df_chart["CleanDate"], errors="coerce")
+    df_chart["Date"] = pd.to_datetime(df_chart["CleanDate"], errors="coerce")[cite: 2]
 
-    # --- תיקון: המרה מפורשת של משך הזמן (Duration) למספר ---
+    # המרה מפורשת של משך הזמן למספר (מונע TypeError)
     df_chart["Duration"] = pd.to_numeric(df_chart["Duration"], errors="coerce")
 
     df_chart = df_chart.dropna(subset=["FullDate", "Duration"]).sort_values(
-        "FullDate"
+        "FullDate"[cite: 2]
     )
 
-    stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"
+    stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"[cite: 2]
     stress_numeric = pd.to_numeric(df_chart[stress_col], errors="coerce").fillna(3)
 
-    # חישוב משך זמן משוקלל (עכשיו שניהם מספרים תקינים)
     df_chart["Weighted_Duration"] = df_chart["Duration"] * (stress_numeric / 3.0)
 
-    # חישוב עצימות יומית
-    daily = df_chart.groupby("Date")["Weighted_Duration"].sum().reset_index()
-    daily.set_index("Date", inplace=True)
-    daily = daily.resample("D").sum().fillna(0)
+    daily = df_chart.groupby("Date")["Weighted_Duration"].sum().reset_index()[cite: 2]
+    daily.set_index("Date", inplace=True)[cite: 2]
+    daily = daily.resample("D").sum().fillna(0)[cite: 2]
 
     def calculate_intensity(window):
       length = len(window)
@@ -335,24 +326,23 @@ with tab1:
     daily["Intensity"] = (
         daily["Weighted_Duration"]
         .rolling(window=7, min_periods=1)
-        .apply(calculate_intensity)
+        .apply(calculate_intensity)[cite: 2]
     )
-    daily = daily.reset_index()
+    daily = daily.reset_index()[cite: 2]
 
-    active_intensity = daily["Intensity"][daily["Intensity"] > 0.1]
-    if not active_intensity.empty:
-      q33 = active_intensity.quantile(0.33)
-      q90 = active_intensity.quantile(0.90)
+    active_intensity = daily["Intensity"][daily["Intensity"] > 0.1][cite: 2]
+    if not active_intensity.empty:[cite: 2]
+      q33 = active_intensity.quantile(0.33)[cite: 2]
+      q90 = active_intensity.quantile(0.90)[cite: 2]
     else:
-      q33, q90 = 0.5, 2.0
+      q33, q90 = 0.5, 2.0[cite: 2]
 
-    y_actual = daily["Intensity"]
-    y_blue = np.minimum(y_actual, q33)
-    y_green = np.minimum(y_actual, q90)
+    y_actual = daily["Intensity"][cite: 2]
+    y_blue = np.minimum(y_actual, q33)[cite: 2]
+    y_green = np.minimum(y_actual, q90)[cite: 2]
 
-    fig = go.Figure()
+    fig = go.Figure()[cite: 2]
 
-    # שכבות הצבע תחת הגרף
     fig.add_trace(
         go.Scatter(
             x=daily["Date"],
@@ -362,7 +352,7 @@ with tab1:
             mode="lines",
             line=dict(width=0),
             showlegend=False,
-            hoverinfo="skip",
+            hoverinfo="skip",[cite: 2]
         )
     )
     fig.add_trace(
@@ -374,7 +364,7 @@ with tab1:
             mode="lines",
             line=dict(width=0),
             showlegend=False,
-            hoverinfo="skip",
+            hoverinfo="skip",[cite: 2]
         )
     )
     fig.add_trace(
@@ -386,27 +376,25 @@ with tab1:
             mode="lines",
             line=dict(width=0),
             showlegend=False,
-            hoverinfo="skip",
+            hoverinfo="skip",[cite: 2]
         )
     )
 
-    # קו העצימות המרכזי
     fig.add_trace(
         go.Scatter(
             x=daily["Date"],
             y=daily["Intensity"],
             mode="lines",
             line=dict(color="#333333", width=3),
-            name="עצימות משוקללת",
+            name="עצימות משוקללת",[cite: 2]
         )
     )
 
-    # קו מגמה
     df_line = df_chart[
         (df_chart["Duration"] > 0.5)
-        | (pd.to_numeric(df_chart[stress_col], errors="coerce") >= 4)
+        | (pd.to_numeric(df_chart[stress_col], errors="coerce") >= 4)[cite: 2]
     ]
-    if not df_line.empty:
+    if not df_line.empty:[cite: 2]
       fig.add_trace(
           go.Scatter(
               x=df_line["FullDate"],
@@ -414,11 +402,10 @@ with tab1:
               mode="lines",
               name="קו מגמה (שיאים)",
               line=dict(color="rgba(80, 80, 80, 0.5)", width=2, dash="dot"),
-              hovertemplate="מגמת שיא: %{y} שעות<extra></extra>",
+              hovertemplate="מגמת שיא: %{y} שעות<extra></extra>",[cite: 2]
           )
       )
 
-    # נקודות האימונים
     fig.add_trace(
         go.Scatter(
             x=df_chart["FullDate"],
@@ -445,38 +432,55 @@ with tab1:
             hovertemplate=(
                 "<b>תאריך ושעה:</b> %{x|%d/%m %H:%M}<br><b>זמן:</b> %{y}"
                 " שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
-            ),
+            ),[cite: 2]
         )
     )
 
-    # --- הוספת סימון רקע סגול לתקופות היעדרות/טיולים על הגרף ---
+    # --- מפת צבעים ייעודית לפי מיקום ההיעדרות ---
+    LOCATION_COLORS = {
+        "אצל יאיר במשק": {"color": "#8E24AA", "rgba": "rgba(142, 36, 170, 0.22)"},   # סגול
+        "אצל ניקול בהרצליה": {"color": "#00897B", "rgba": "rgba(0, 137, 123, 0.22)"}, # טורקיז-ירוק
+        "אצל חברים בתל אביב": {"color": "#1E88E5", "rgba": "rgba(30, 136, 229, 0.22)"}, # כחול
+        "בבית כשמישהו שומר עליה": {"color": "#FB8C00", "rgba": "rgba(251, 140, 0, 0.22)"}, # כתום חם
+        "פנסיון": {"color": "#D81B60", "rgba": "rgba(216, 27, 96, 0.22)"},            # ורוד-פוקסיה
+        "אחר": {"color": "#5E35B1", "rgba": "rgba(94, 53, 177, 0.22)"}                # אינדיגו
+    }
+
+    # ציור אזורי היעדרות על הגרף
     df_away = get_data("Away_Log")
-    if not df_away.empty and "Start_Date" in df_away.columns and "End_Date" in df_away.columns:
+    if (
+        not df_away.empty
+        and "Start_Date" in df_away.columns
+        and "End_Date" in df_away.columns
+    ):
       for _, row in df_away.iterrows():
         try:
           s_date = pd.to_datetime(row["Start_Date"], errors="coerce")
           e_date = pd.to_datetime(row["End_Date"], errors="coerce")
-          loc_label = str(row.get("Location", "היעדרות"))
+          loc_label = str(row.get("Location", "היעדרות")).strip()
+          
+          # בחירת הגוון מהמפה (או סגול ברירת מחדל)
+          color_info = LOCATION_COLORS.get(
+              loc_label, {"color": "#8E24AA", "rgba": "rgba(142, 36, 170, 0.22)"}
+          )
+          
           if pd.notna(s_date) and pd.notna(e_date):
             fig.add_vrect(
                 x0=s_date,
                 x1=e_date,
-                fillcolor="purple",
-                opacity=0.2,
+                fillcolor=color_info["rgba"],
                 layer="below",
                 line_width=0,
                 annotation_text=f"🏡 {loc_label}",
                 annotation_position="top left",
-                annotation_font=dict(color="purple", size=12)
+                annotation_font=dict(color=color_info["color"], size=12)
             )
         except Exception:
           pass
 
-    # טווח ברירת מחדל: חודשיים אחרונים
-    max_date = df_chart["Date"].max()
-    two_months_ago = max_date - pd.DateOffset(months=2)
+    max_date = df_chart["Date"].max()[cite: 2]
+    two_months_ago = max_date - pd.DateOffset(months=2)[cite: 2]
 
-    # עיצוב הגרף
     fig.update_layout(
         title="🐕 ניתוח עומס והתקדמות של מייפל",
         yaxis_title="עומס משוקלל / זמן",
@@ -485,45 +489,45 @@ with tab1:
             orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
         ),
         margin=dict(l=0, r=0, t=60, b=50),
-        height=500,
+        height=500,[cite: 2]
     )
 
     fig.update_xaxes(
         tickfont=dict(size=14),
         automargin=True,
         tickformat="%d/%m",
-        range=[two_months_ago, max_date + pd.Timedelta(days=1)],
+        range=[two_months_ago, max_date + pd.Timedelta(days=1)],[cite: 2]
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)[cite: 2]
     st.link_button(
-        "פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True
+        "פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True[cite: 2]
     )
 
   else:
-    st.info("אין מספיק נתונים להצגת הגרף המאוחד.")
+    st.info("אין מספיק נתונים להצגת הגרף המאוחד.")[cite: 2]
 
-  st.divider()
+  st.divider()[cite: 2]
 
-  # --- חלק ג: עריכת היסטוריית אימונים בתוך תפריט מתקפל ---
-  with st.expander("✏️ לצפייה ועריכת היסטוריית אימונים", expanded=False):
-    if not df_all.empty:
-      if "Time" in df_all.columns:
+  # --- חלק ג: עריכת היסטוריית אימונים ---
+  with st.expander("✏️ לצפייה ועריכת היסטוריית אימונים", expanded=False):[cite: 2]
+    if not df_all.empty:[cite: 2]
+      if "Time" in df_all.columns:[cite: 2]
         df_all["Time"] = (
             df_all["Time"]
             .astype(str)
-            .apply(lambda x: x[:5] if len(x) > 5 else x)
+            .apply(lambda x: x[:5] if len(x) > 5 else x)[cite: 2]
         )
 
-      stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"
-      df_all["Duration"] = pd.to_numeric(df_all["Duration"], errors="coerce")
+      stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"[cite: 2]
+      df_all["Duration"] = pd.to_numeric(df_all["Duration"], errors="coerce")[cite: 2]
       df_all[stress_col] = (
-          pd.to_numeric(df_all[stress_col], errors="coerce").fillna(3)
+          pd.to_numeric(df_all[stress_col], errors="coerce").fillna(3)[cite: 2]
       )
 
-      df_tail = df_all.tail(10)
-      if "train_original" not in st.session_state:
-        st.session_state["train_original"] = df_tail.copy()
+      df_tail = df_all.tail(10)[cite: 2]
+      if "train_original" not in st.session_state:[cite: 2]
+        st.session_state["train_original"] = df_tail.copy()[cite: 2]
 
       edited_df = st.data_editor(
           df_tail,
@@ -541,50 +545,79 @@ with tab1:
                   "😰 מדד לחץ", min_value=1, max_value=5, step=1
               ),
               "Notes": st.column_config.TextColumn("📝 הערות"),
-          },
+          },[cite: 2]
       )
 
       if st.button(
-          "שמור שינויים בטבלה 💾", key="save_tail_btn", use_container_width=True
+          "שמור שינויים בטבלה 💾", key="save_tail_btn", use_container_width=True[cite: 2]
       ):
         if smart_update(
-            "Training", st.session_state["train_original"], edited_df
+            "Training", st.session_state["train_original"], edited_df[cite: 2]
         ):
-          del st.session_state["train_original"]
-          st.rerun()
+          del st.session_state["train_original"][cite: 2]
+          st.rerun()[cite: 2]
 
-  # --- חלק ד: הזנת היעדרות/טיול ממושך (תפריט מתקפל בלמטה של העמוד) ---
-  with st.expander("🏡 תיעוד היעדרות ממושכת (טיול / אירוח מחוץ לבית)", expanded=False):
-    st.markdown("משתמשים בחלק זה לתיעוד היעדרויות ארוכות (כמו שהות אצל אבא/פנסיון) כדי שהזמן יסומן בסגול על הגרף ולא יטה את ממוצע האימונים.")
-    
+  # --- חלק ד: הזנת היעדרות/טיול ממושך עם הרשימה המעודכנת ---
+  with st.expander(
+      "🏡 תיעוד היעדרות ממושכת (טיול / אירוח מחוץ לבית)", expanded=False
+  ):
+    st.markdown(
+        "משתמשים בחלק זה לתיעוד היעדרויות ארוכות כדי שהזמן יסומן בצבע המתאים על הגרף ולא יטה את מדד העצימות."
+    )
+
     with st.container(border=True):
       c_a1, c_a2 = st.columns(2)
       with c_a1:
-        start_away = st.date_input("📅 תאריך תחילת היעדרות", value=now_il.date(), key="away_start")
+        start_away = st.date_input(
+            "📅 תאריך תחילת היעדרות", value=now_il.date(), key="away_start"
+        )
       with c_a2:
-        end_away = st.date_input("📅 תאריך חזרה", value=now_il.date() + timedelta(days=14), key="away_end")
+        end_away = st.date_input(
+            "📅 תאריך חזרה",
+            value=now_il.date() + timedelta(days=14),
+            key="away_end",
+        )
+
+      # הרשימה המעודכנת של המיקומים
+      away_locations = [
+          "אצל יאיר במשק",
+          "אצל ניקול בהרצליה",
+          "אצל חברים בתל אביב",
+          "בבית כשמישהו שומר עליה",
+          "פנסיון",
+          "אחר"
+      ]
       
       location = st.selectbox(
           "📍 איפה מייפל תשהה?",
-          ["אצל אבא במשק 🚜", "פנסיון 🐾", "בייביסיטר בבית 🏠", "אחר"],
-          key="away_location"
+          away_locations,
+          key="away_location",
       )
-      
-      away_notes = st.text_input("📝 הערות על התקופה", placeholder="איך הגיבה? האם היו שינויים התנהגותיים?", key="away_notes")
-      
+
+      away_notes = st.text_input(
+          "📝 הערות על התקופה",
+          placeholder="איך הגיבה? האם היו שינויים התנהגותיים?",
+          key="away_notes",
+      )
+
       days_count = (end_away - start_away).days
       if days_count <= 0:
         st.warning("תאריך החזרה חייב להיות מאוחר מתאריך ההתחלה.")
       else:
         st.info(f"💡 סה״כ זמן היעדרות מתוכנן: **{days_count} ימים**")
-        
-        if st.button("שמור היעדרות 💾", key="save_away_btn", type="primary", use_container_width=True):
+
+        if st.button(
+            "שמור היעדרות 💾",
+            key="save_away_btn",
+            type="primary",
+            use_container_width=True,
+        ):
           row_away = [
               str(start_away),
               str(end_away),
               location,
               days_count,
-              away_notes.strip()
+              away_notes.strip(),
           ]
           if append_row("Away_Log", row_away):
             st.success(f"תקופת ההיעדרות ({days_count} ימים) נשמרה בהצלחה!")
