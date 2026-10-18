@@ -194,159 +194,85 @@ with tab1:
     if pd.notna(max_dur) and max_dur > 0:
       default_duration = round((max_dur / 2.0) * 4) / 4
 
- # שימוש ב-container מאפשר תגובתיות חיה (ריאקטיביות לשורת הסיכום)
-    with st.container(border=True):
-      # הצגת הודעת הצלחה אם נשמר אימון ברענון הקודם
-      if "train_success_msg" in st.session_state:
-        st.success(st.session_state.pop("train_success_msg"))
-
-      # שורה 1: תאריך ושעת התחלה
-      c_date, c_time = st.columns(2)
-      with c_date:
-        d_date = st.date_input(
-            "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
-        )
-      with c_time:
-        start_time = st.time_input(
-            "⏰ שעת התחלה (יציאה)",
-            value=now_il.time(),
-            key="train_manual_start_time",
-        )
-
-      # שורה 2: שדה משך זמן מאוחד בשעות (בקפיצות של רבע שעה)
-      total_duration = st.number_input(
-          "⏳ משך זמן (שעות)",
-          min_value=0.25,
-          max_value=12.0,
-          value=float(default_duration),
-          step=0.25,
-          format="%.2f",
-          key="train_duration_input",
+  # container להזנת אימון חדש
+  with st.container(border=True):
+    # שורה 1: תאריך ושעת התחלה
+    c_date, c_time = st.columns(2)
+    with c_date:
+      d_date = st.date_input(
+          "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
+      )
+    with c_time:
+      start_time = st.time_input(
+          "⏰ שעת התחלה (יציאה)",
+          value=now_il.time(),
+          key="train_manual_start_time",
       )
 
-      # שורת סיכום שמתעדכנת מיידית בלייב
-      if total_duration > 0 and start_time:
-        dummy_dt = datetime.combine(d_date, start_time) + timedelta(
-            hours=total_duration
-        )
-        calc_end_str = dummy_dt.strftime("%H:%M")
-        start_str = start_time.strftime("%H:%M")
-        st.info(
-            f"💡 יציאה: **{start_str}** | חזרה משוערת: **{calc_end_str}** |"
-            f" סה״כ: **{total_duration:.2f} שעות**"
-        )
+    # שורה 2: משך זמן בשעות
+    total_duration = st.number_input(
+        "⏳ משך זמן (שעות)",
+        min_value=0.25,
+        max_value=12.0,
+        value=float(default_duration),
+        step=0.25,
+        format="%.2f",
+        key="train_duration_input",
+    )
 
-      # שורה 3: מדד לחץ
-      d_stress = st.select_slider(
-          "😰 מדד לחץ",
-          options=[1, 2, 3, 4, 5],
-          value=2,
-          format_func=lambda x: {
-              1: "1 - רגועה לחלוטין 🟢",
-              2: "2 - אי-שקט קל 🟡",
-              3: "3 - לחץ בינוני 🟠",
-              4: "4 - מצוקה גבוהה 🔴",
-              5: "5 - פאניקה 🚨",
-          }[x],
-          key="train_stress_input",
+    # שורת סיכום
+    if total_duration > 0 and start_time:
+      dummy_dt = datetime.combine(d_date, start_time) + timedelta(
+          hours=total_duration
+      )
+      calc_end_str = dummy_dt.strftime("%H:%M")
+      start_str = start_time.strftime("%H:%M")
+      st.info(
+          f"💡 יציאה: **{start_str}** | חזרה משוערת: **{calc_end_str}** | סה״כ:"
+          f" **{total_duration:.2f} שעות**"
       )
 
-      # שורה 4: שדה הערות ישיר
-      d_note = st.text_input(
-          "📝 הערות",
-          placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)",
-          key="train_note_input",
-      )
+    # שורה 3: מדד לחץ
+    d_stress = st.select_slider(
+        "😰 מדד לחץ",
+        options=[1, 2, 3, 4, 5],
+        value=2,
+        format_func=lambda x: {
+            1: "1 - רגועה לחלוטין 🟢",
+            2: "2 - אי-שקט קל 🟡",
+            3: "3 - לחץ בינוני 🟠",
+            4: "4 - מצוקה גבוהה 🔴",
+            5: "5 - פאניקה 🚨",
+        }[x],
+    )
 
-      # כפתור שמירה
-      if st.button(
-          "שמור אימון 💾", type="primary", use_container_width=True
-      ):
-        if total_duration <= 0:
-          st.error("משך האימון חייב להיות גדול מ-0!")
-        else:
-          formatted_time = start_time.strftime("%H:%M")
-          row = [
-              str(d_date),
-              formatted_time,
-              round(total_duration, 2),
-              d_stress,
-              d_note.strip(),
-          ]
-          if append_row("Training", row):
-            # שמירת הודעת החיווי לרענון הבא
-            st.session_state["train_success_msg"] = (
-                f"✅ האימון נשמר בהצלחה! ({formatted_time},"
-                f" {total_duration:.2f} שעות)"
-            )
+    # שורה 4: הערות
+    d_note = st.text_input(
+        "📝 הערות",
+        placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)",
+    )
 
-            # מחיקת ערכי הטופס מהזיכרון כדי שייפתח ריק ונקי
-            for k in [
-                "train_manual_date_input",
-                "train_manual_start_time",
-                "train_duration_input",
-                "train_stress_input",
-                "train_note_input",
-            ]:
-              if k in st.session_state:
-                del st.session_state[k]
-
-            st.rerun()
-
-  st.divider()
-
-  # --- חלק ב: עריכת היסטוריה בתוך תפריט מתקפל ---
-  with st.expander("✏️ לצפייה ועריכת היסטוריית אימונים", expanded=False):
-    if not df_all.empty:
-      # ניקוי פורמט השעה לתצוגה
-      if "Time" in df_all.columns:
-        df_all["Time"] = (
-            df_all["Time"]
-            .astype(str)
-            .apply(lambda x: x[:5] if len(x) > 5 else x)
-        )
-
-      # הכנת הנתונים לעריכה
-      stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"
-      df_all["Duration"] = pd.to_numeric(df_all["Duration"], errors="coerce")
-      df_all[stress_col] = (
-          pd.to_numeric(df_all[stress_col], errors="coerce").fillna(3)
-      )
-
-      df_tail = df_all.tail(10)
-      if "train_original" not in st.session_state:
-        st.session_state["train_original"] = df_tail.copy()
-
-      # הצגת הטבלה
-      edited_df = st.data_editor(
-          df_tail,
-          num_rows="fixed",
-          use_container_width=True,
-          hide_index=True,
-          key="train_editor",
-          column_config={
-              "Date": st.column_config.Column("📅 תאריך"),
-              "Time": st.column_config.Column("⏰ שעה"),
-              "Duration": st.column_config.NumberColumn(
-                  "⏳ זמן (שעות)", format="%.2f", step=0.25
-              ),
-              stress_col: st.column_config.NumberColumn(
-                  "😰 מדד לחץ", min_value=1, max_value=5, step=1
-              ),
-              "Notes": st.column_config.TextColumn("📝 הערות"),
-          },
-      )
-
-      if st.button(
-          "שמור שינויים בטבלה 💾", key="save_tail_btn", use_container_width=True
-      ):
-        if smart_update(
-            "Training", st.session_state["train_original"], edited_df
-        ):
-          del st.session_state["train_original"]
+    # כפתור שמירה
+    if st.button("שמור אימון 💾", type="primary", use_container_width=True):
+      if total_duration <= 0:
+        st.error("משך האימון חייב להיות גדול מ-0!")
+      else:
+        formatted_time = start_time.strftime("%H:%M")
+        row = [
+            str(d_date),
+            formatted_time,
+            round(total_duration, 2),
+            d_stress,
+            d_note.strip(),
+        ]
+        if append_row("Training", row):
+          st.success(
+              f"האימון נשמר בהצלחה! ({formatted_time}, {total_duration:.2f}"
+              " שעות)"
+          )
           st.rerun()
 
-  # --- חלק ג: הגרף המאוחד: גרסה עם זיהוי שעות מדויק ---
+  # --- הגרף המאוחד ---
   st.divider()
   if (
       not df_all.empty
@@ -358,7 +284,7 @@ with tab1:
 
     df_chart = df_all.copy()
 
-    # 1. סידור תאריכים ושעות בצורה חסינה לתקלות
+    # סידור תאריכים ושעות
     df_chart["CleanDate"] = pd.to_datetime(
         df_chart["Date"], errors="coerce"
     ).dt.strftime("%Y-%m-%d")
@@ -421,7 +347,7 @@ with tab1:
 
     fig = go.Figure()
 
-    # שכבות הצבע תחת הגרף בלבד
+    # שכבות הצבע תחת הגרף
     fig.add_trace(
         go.Scatter(
             x=daily["Date"],
@@ -470,7 +396,7 @@ with tab1:
         )
     )
 
-    # קו מגמה מקוקו בין שיאים
+    # קו מגמה
     df_line = df_chart[
         (df_chart["Duration"] > 0.5)
         | (pd.to_numeric(df_chart[stress_col], errors="coerce") >= 4)
@@ -518,11 +444,34 @@ with tab1:
         )
     )
 
+    # --- הוספת סימון רקע סגול לתקופות היעדרות/טיולים על הגרף ---
+    df_away = get_data("Away_Log")
+    if not df_away.empty and "Start_Date" in df_away.columns and "End_Date" in df_away.columns:
+      for _, row in df_away.iterrows():
+        try:
+          s_date = pd.to_datetime(row["Start_Date"], errors="coerce")
+          e_date = pd.to_datetime(row["End_Date"], errors="coerce")
+          loc_label = str(row.get("Location", "היעדרות"))
+          if pd.notna(s_date) and pd.notna(e_date):
+            fig.add_vrect(
+                x0=s_date,
+                x1=e_date,
+                fillcolor="purple",
+                opacity=0.2,
+                layer="below",
+                line_width=0,
+                annotation_text=f"🏡 {loc_label}",
+                annotation_position="top left",
+                annotation_font=dict(color="purple", size=12)
+            )
+        except Exception:
+          pass
+
     # טווח ברירת מחדל: חודשיים אחרונים
     max_date = df_chart["Date"].max()
     two_months_ago = max_date - pd.DateOffset(months=2)
 
-    # עיצוב
+    # עיצוב הגרף
     fig.update_layout(
         title="🐕 ניתוח עומס והתקדמות של מייפל",
         yaxis_title="עומס משוקלל / זמן",
@@ -548,6 +497,93 @@ with tab1:
 
   else:
     st.info("אין מספיק נתונים להצגת הגרף המאוחד.")
+
+  st.divider()
+
+  # --- חלק ג: עריכת היסטוריית אימונים בתוך תפריט מתקפל ---
+  with st.expander("✏️ לצפייה ועריכת היסטוריית אימונים", expanded=False):
+    if not df_all.empty:
+      if "Time" in df_all.columns:
+        df_all["Time"] = (
+            df_all["Time"]
+            .astype(str)
+            .apply(lambda x: x[:5] if len(x) > 5 else x)
+        )
+
+      stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"
+      df_all["Duration"] = pd.to_numeric(df_all["Duration"], errors="coerce")
+      df_all[stress_col] = (
+          pd.to_numeric(df_all[stress_col], errors="coerce").fillna(3)
+      )
+
+      df_tail = df_all.tail(10)
+      if "train_original" not in st.session_state:
+        st.session_state["train_original"] = df_tail.copy()
+
+      edited_df = st.data_editor(
+          df_tail,
+          num_rows="fixed",
+          use_container_width=True,
+          hide_index=True,
+          key="train_editor",
+          column_config={
+              "Date": st.column_config.Column("📅 תאריך"),
+              "Time": st.column_config.Column("⏰ שעה"),
+              "Duration": st.column_config.NumberColumn(
+                  "⏳ זמן (שעות)", format="%.2f", step=0.25
+              ),
+              stress_col: st.column_config.NumberColumn(
+                  "😰 מדד לחץ", min_value=1, max_value=5, step=1
+              ),
+              "Notes": st.column_config.TextColumn("📝 הערות"),
+          },
+      )
+
+      if st.button(
+          "שמור שינויים בטבלה 💾", key="save_tail_btn", use_container_width=True
+      ):
+        if smart_update(
+            "Training", st.session_state["train_original"], edited_df
+        ):
+          del st.session_state["train_original"]
+          st.rerun()
+
+  # --- חלק ד: הזנת היעדרות/טיול ממושך (תפריט מתקפל בלמטה של העמוד) ---
+  with st.expander("🏡 תיעוד היעדרות ממושכת (טיול / אירוח מחוץ לבית)", expanded=False):
+    st.markdown("משתמשים בחלק זה לתיעוד היעדרויות ארוכות (כמו שהות אצל אבא/פנסיון) כדי שהזמן יסומן בסגול על הגרף ולא יטה את ממוצע האימונים.")
+    
+    with st.container(border=True):
+      c_a1, c_a2 = st.columns(2)
+      with c_a1:
+        start_away = st.date_input("📅 תאריך תחילת היעדרות", value=now_il.date(), key="away_start")
+      with c_a2:
+        end_away = st.date_input("📅 תאריך חזרה", value=now_il.date() + timedelta(days=14), key="away_end")
+      
+      location = st.selectbox(
+          "📍 איפה מייפל תשהה?",
+          ["אצל אבא במשק 🚜", "פנסיון 🐾", "בייביסיטר בבית 🏠", "אחר"],
+          key="away_location"
+      )
+      
+      away_notes = st.text_input("📝 הערות על התקופה", placeholder="איך הגיבה? האם היו שינויים התנהגותיים?", key="away_notes")
+      
+      days_count = (end_away - start_away).days
+      if days_count <= 0:
+        st.warning("תאריך החזרה חייב להיות מאוחר מתאריך ההתחלה.")
+      else:
+        st.info(f"💡 סה״כ זמן היעדרות מתוכנן: **{days_count} ימים**")
+        
+        if st.button("שמור היעדרות 💾", key="save_away_btn", type="primary", use_container_width=True):
+          row_away = [
+              str(start_away),
+              str(end_away),
+              location,
+              days_count,
+              away_notes.strip()
+          ]
+          if append_row("Away_Log", row_away):
+            st.success(f"תקופת ההיעדרות ({days_count} ימים) נשמרה בהצלחה!")
+            st.rerun()
 
 # --- טאב 2: האכלות (Feeding) - גרסה עם גרף צבעוני ---
 with tab2:
