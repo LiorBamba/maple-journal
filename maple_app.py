@@ -179,33 +179,33 @@ tab1, tab2, tab3 = st.tabs(["🏃 הישארות לבד", "🦴 האכלות", "
 
 # --- טאב 1: אימונים (Training) ---
 with tab1:
-  st.header("תיעוד חשיפה ונטישות")[cite: 2]
-  st.subheader("📝 הוספת אימון חדש")[cite: 2]
+  st.header("תיעוד חשיפה ונטישות")
+  st.subheader("📝 הוספת אימון חדש")
 
-  now_il = datetime.now(IL_TZ)[cite: 2]
+  now_il = datetime.now(IL_TZ)
 
   # טעינת נתונים מסודרת לכל הטאב
-  df_all = get_data("Training")[cite: 2]
+  df_all = get_data("Training")
 
   # חישוב דינמי של אמצע השיא מתוך הנתונים הקיימים
-  default_duration = 2.5  # ברירת מחדל בטוחה[cite: 2]
-  if not df_all.empty and "Duration" in df_all.columns:[cite: 2]
-    max_dur = pd.to_numeric(df_all["Duration"], errors="coerce").max()[cite: 2]
-    if pd.notna(max_dur) and max_dur > 0:[cite: 2]
-      default_duration = round((max_dur / 2.0) * 4) / 4[cite: 2]
+  default_duration = 2.5  # ברירת מחדל בטוחה
+  if not df_all.empty and "Duration" in df_all.columns:
+    max_dur = pd.to_numeric(df_all["Duration"], errors="coerce").max()
+    if pd.notna(max_dur) and max_dur > 0:
+      default_duration = round((max_dur / 2.0) * 4) / 4
 
   # container להזנת אימון חדש
-  with st.container(border=True):[cite: 2]
-    c_date, c_time = st.columns(2)[cite: 2]
+  with st.container(border=True):
+    c_date, c_time = st.columns(2)
     with c_date:
       d_date = st.date_input(
-          "📅 תאריך", value=now_il.date(), key="train_manual_date_input"[cite: 2]
+          "📅 תאריך", value=now_il.date(), key="train_manual_date_input"
       )
     with c_time:
       start_time = st.time_input(
           "⏰ שעת התחלה (יציאה)",
           value=now_il.time(),
-          key="train_manual_start_time",[cite: 2]
+          key="train_manual_start_time",
       )
 
     total_duration = st.number_input(
@@ -215,18 +215,18 @@ with tab1:
         value=float(default_duration),
         step=0.25,
         format="%.2f",
-        key="train_duration_input",[cite: 2]
+        key="train_duration_input",
     )
 
-    if total_duration > 0 and start_time:[cite: 2]
+    if total_duration > 0 and start_time:
       dummy_dt = datetime.combine(d_date, start_time) + timedelta(
-          hours=total_duration[cite: 2]
+          hours=total_duration
       )
-      calc_end_str = dummy_dt.strftime("%H:%M")[cite: 2]
-      start_str = start_time.strftime("%H:%M")[cite: 2]
+      calc_end_str = dummy_dt.strftime("%H:%M")
+      start_str = start_time.strftime("%H:%M")
       st.info(
-          f"💡 יציאה: **{start_str}** | חזרה משוערת: **{calc_end_str}** | סה״כ:"[cite: 2]
-          f" **{total_duration:.2f} שעות**"[cite: 2]
+          f"💡 יציאה: **{start_str}** | חזרה משוערת: **{calc_end_str}** | סה״כ:"
+          f" **{total_duration:.2f} שעות**"
       )
 
     d_stress = st.select_slider(
@@ -239,48 +239,48 @@ with tab1:
             3: "3 - לחץ בינוני 🟠",
             4: "4 - מצוקה גבוהה 🔴",
             5: "5 - פאניקה 🚨",
-        }[x],[cite: 2]
+        }[x],
     )
 
     d_note = st.text_input(
         "📝 הערות",
-        placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)",[cite: 2]
+        placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)",
     )
 
-    if st.button("שמור אימון 💾", type="primary", use_container_width=True):[cite: 2]
-      if total_duration <= 0:[cite: 2]
-        st.error("משך האימון חייב להיות גדול מ-0!")[cite: 2]
+    if st.button("שמור אימון 💾", type="primary", use_container_width=True):
+      if total_duration <= 0:
+        st.error("משך האימון חייב להיות גדול מ-0!")
       else:
-        formatted_time = start_time.strftime("%H:%M")[cite: 2]
+        formatted_time = start_time.strftime("%H:%M")
         row = [
             str(d_date),
             formatted_time,
             round(total_duration, 2),
             d_stress,
-            d_note.strip(),[cite: 2]
+            d_note.strip(),
         ]
-        if append_row("Training", row):[cite: 2]
+        if append_row("Training", row):
           st.success(
-              f"האימון נשמר בהצלחה! ({formatted_time}, {total_duration:.2f}"[cite: 2]
-              " שעות)"[cite: 2]
+              f"האימון נשמר בהצלחה! ({formatted_time}, {total_duration:.2f}"
+              " שעות)"
           )
-          st.rerun()[cite: 2]
+          st.rerun()
 
   # --- הגרף המאוחד ---
-  st.divider()[cite: 2]
+  st.divider()
   if (
       not df_all.empty
       and "Date" in df_all.columns
-      and "Duration" in df_all.columns[cite: 2]
+      and "Duration" in df_all.columns
   ):
-    import numpy as np[cite: 2]
-    import plotly.graph_objects as go[cite: 2]
+    import numpy as np
+    import plotly.graph_objects as go
 
-    df_chart = df_all.copy()[cite: 2]
+    df_chart = df_all.copy()
 
     df_chart["CleanDate"] = pd.to_datetime(
         df_chart["Date"], errors="coerce"
-    ).dt.strftime("%Y-%m-%d")[cite: 2]
+    ).dt.strftime("%Y-%m-%d")
 
     def parse_time(t):
       t = str(t).strip().split(".")[0]
@@ -292,31 +292,31 @@ with tab1:
         return f"{t[:2]}:{t[2:]}"
       return "12:00"
 
-    if "Time" in df_chart.columns:[cite: 2]
-      time_series = df_chart["Time"].apply(parse_time)[cite: 2]
+    if "Time" in df_chart.columns:
+      time_series = df_chart["Time"].apply(parse_time)
     else:
       time_series = "12:00"
 
     df_chart["FullDate"] = pd.to_datetime(
-        df_chart["CleanDate"] + " " + time_series, errors="coerce"[cite: 2]
+        df_chart["CleanDate"] + " " + time_series, errors="coerce"
     )
-    df_chart["Date"] = pd.to_datetime(df_chart["CleanDate"], errors="coerce")[cite: 2]
+    df_chart["Date"] = pd.to_datetime(df_chart["CleanDate"], errors="coerce")
 
     # המרה מפורשת של משך הזמן למספר (מונע TypeError)
     df_chart["Duration"] = pd.to_numeric(df_chart["Duration"], errors="coerce")
 
     df_chart = df_chart.dropna(subset=["FullDate", "Duration"]).sort_values(
-        "FullDate"[cite: 2]
+        "FullDate"
     )
 
-    stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"[cite: 2]
+    stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"
     stress_numeric = pd.to_numeric(df_chart[stress_col], errors="coerce").fillna(3)
 
     df_chart["Weighted_Duration"] = df_chart["Duration"] * (stress_numeric / 3.0)
 
-    daily = df_chart.groupby("Date")["Weighted_Duration"].sum().reset_index()[cite: 2]
-    daily.set_index("Date", inplace=True)[cite: 2]
-    daily = daily.resample("D").sum().fillna(0)[cite: 2]
+    daily = df_chart.groupby("Date")["Weighted_Duration"].sum().reset_index()
+    daily.set_index("Date", inplace=True)
+    daily = daily.resample("D").sum().fillna(0)
 
     def calculate_intensity(window):
       length = len(window)
@@ -326,22 +326,22 @@ with tab1:
     daily["Intensity"] = (
         daily["Weighted_Duration"]
         .rolling(window=7, min_periods=1)
-        .apply(calculate_intensity)[cite: 2]
+        .apply(calculate_intensity)
     )
-    daily = daily.reset_index()[cite: 2]
+    daily = daily.reset_index()
 
-    active_intensity = daily["Intensity"][daily["Intensity"] > 0.1][cite: 2]
-    if not active_intensity.empty:[cite: 2]
-      q33 = active_intensity.quantile(0.33)[cite: 2]
-      q90 = active_intensity.quantile(0.90)[cite: 2]
+    active_intensity = daily["Intensity"][daily["Intensity"] > 0.1]
+    if not active_intensity.empty:
+      q33 = active_intensity.quantile(0.33)
+      q90 = active_intensity.quantile(0.90)
     else:
-      q33, q90 = 0.5, 2.0[cite: 2]
+      q33, q90 = 0.5, 2.0
 
-    y_actual = daily["Intensity"][cite: 2]
-    y_blue = np.minimum(y_actual, q33)[cite: 2]
-    y_green = np.minimum(y_actual, q90)[cite: 2]
+    y_actual = daily["Intensity"]
+    y_blue = np.minimum(y_actual, q33)
+    y_green = np.minimum(y_actual, q90)
 
-    fig = go.Figure()[cite: 2]
+    fig = go.Figure()
 
     fig.add_trace(
         go.Scatter(
@@ -352,7 +352,7 @@ with tab1:
             mode="lines",
             line=dict(width=0),
             showlegend=False,
-            hoverinfo="skip",[cite: 2]
+            hoverinfo="skip",
         )
     )
     fig.add_trace(
@@ -364,7 +364,7 @@ with tab1:
             mode="lines",
             line=dict(width=0),
             showlegend=False,
-            hoverinfo="skip",[cite: 2]
+            hoverinfo="skip",
         )
     )
     fig.add_trace(
@@ -376,7 +376,7 @@ with tab1:
             mode="lines",
             line=dict(width=0),
             showlegend=False,
-            hoverinfo="skip",[cite: 2]
+            hoverinfo="skip",
         )
     )
 
@@ -386,15 +386,15 @@ with tab1:
             y=daily["Intensity"],
             mode="lines",
             line=dict(color="#333333", width=3),
-            name="עצימות משוקללת",[cite: 2]
+            name="עצימות משוקללת",
         )
     )
 
     df_line = df_chart[
         (df_chart["Duration"] > 0.5)
-        | (pd.to_numeric(df_chart[stress_col], errors="coerce") >= 4)[cite: 2]
+        | (pd.to_numeric(df_chart[stress_col], errors="coerce") >= 4)
     ]
-    if not df_line.empty:[cite: 2]
+    if not df_line.empty:
       fig.add_trace(
           go.Scatter(
               x=df_line["FullDate"],
@@ -402,7 +402,7 @@ with tab1:
               mode="lines",
               name="קו מגמה (שיאים)",
               line=dict(color="rgba(80, 80, 80, 0.5)", width=2, dash="dot"),
-              hovertemplate="מגמת שיא: %{y} שעות<extra></extra>",[cite: 2]
+              hovertemplate="מגמת שיא: %{y} שעות<extra></extra>",
           )
       )
 
@@ -432,7 +432,7 @@ with tab1:
             hovertemplate=(
                 "<b>תאריך ושעה:</b> %{x|%d/%m %H:%M}<br><b>זמן:</b> %{y}"
                 " שעות<br><b>לחץ:</b> %{customdata}<extra></extra>"
-            ),[cite: 2]
+            ),
         )
     )
 
@@ -478,8 +478,8 @@ with tab1:
         except Exception:
           pass
 
-    max_date = df_chart["Date"].max()[cite: 2]
-    two_months_ago = max_date - pd.DateOffset(months=2)[cite: 2]
+    max_date = df_chart["Date"].max()
+    two_months_ago = max_date - pd.DateOffset(months=2)
 
     fig.update_layout(
         title="🐕 ניתוח עומס והתקדמות של מייפל",
@@ -489,45 +489,45 @@ with tab1:
             orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
         ),
         margin=dict(l=0, r=0, t=60, b=50),
-        height=500,[cite: 2]
+        height=500,
     )
 
     fig.update_xaxes(
         tickfont=dict(size=14),
         automargin=True,
         tickformat="%d/%m",
-        range=[two_months_ago, max_date + pd.Timedelta(days=1)],[cite: 2]
+        range=[two_months_ago, max_date + pd.Timedelta(days=1)],
     )
 
-    st.plotly_chart(fig, use_container_width=True)[cite: 2]
+    st.plotly_chart(fig, use_container_width=True)
     st.link_button(
-        "פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True[cite: 2]
+        "פתח את הגיליון המלא בגוגל שיטס 📊", SHEET_URL, use_container_width=True
     )
 
   else:
-    st.info("אין מספיק נתונים להצגת הגרף המאוחד.")[cite: 2]
+    st.info("אין מספיק נתונים להצגת הגרף המאוחד.")
 
-  st.divider()[cite: 2]
+  st.divider()
 
   # --- חלק ג: עריכת היסטוריית אימונים ---
-  with st.expander("✏️ לצפייה ועריכת היסטוריית אימונים", expanded=False):[cite: 2]
-    if not df_all.empty:[cite: 2]
-      if "Time" in df_all.columns:[cite: 2]
+  with st.expander("✏️ לצפייה ועריכת היסטוריית אימונים", expanded=False):
+    if not df_all.empty:
+      if "Time" in df_all.columns:
         df_all["Time"] = (
             df_all["Time"]
             .astype(str)
-            .apply(lambda x: x[:5] if len(x) > 5 else x)[cite: 2]
+            .apply(lambda x: x[:5] if len(x) > 5 else x)
         )
 
-      stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"[cite: 2]
-      df_all["Duration"] = pd.to_numeric(df_all["Duration"], errors="coerce")[cite: 2]
+      stress_col = "StressLevel" if "StressLevel" in df_all.columns else "Stress"
+      df_all["Duration"] = pd.to_numeric(df_all["Duration"], errors="coerce")
       df_all[stress_col] = (
-          pd.to_numeric(df_all[stress_col], errors="coerce").fillna(3)[cite: 2]
+          pd.to_numeric(df_all[stress_col], errors="coerce").fillna(3)
       )
 
-      df_tail = df_all.tail(10)[cite: 2]
-      if "train_original" not in st.session_state:[cite: 2]
-        st.session_state["train_original"] = df_tail.copy()[cite: 2]
+      df_tail = df_all.tail(10)
+      if "train_original" not in st.session_state:
+        st.session_state["train_original"] = df_tail.copy()
 
       edited_df = st.data_editor(
           df_tail,
@@ -545,17 +545,17 @@ with tab1:
                   "😰 מדד לחץ", min_value=1, max_value=5, step=1
               ),
               "Notes": st.column_config.TextColumn("📝 הערות"),
-          },[cite: 2]
+          },
       )
 
       if st.button(
-          "שמור שינויים בטבלה 💾", key="save_tail_btn", use_container_width=True[cite: 2]
+          "שמור שינויים בטבלה 💾", key="save_tail_btn", use_container_width=True
       ):
         if smart_update(
-            "Training", st.session_state["train_original"], edited_df[cite: 2]
+            "Training", st.session_state["train_original"], edited_df
         ):
-          del st.session_state["train_original"][cite: 2]
-          st.rerun()[cite: 2]
+          del st.session_state["train_original"]
+          st.rerun()
 
   # --- חלק ד: הזנת היעדרות/טיול ממושך עם הרשימה המעודכנת ---
   with st.expander(
