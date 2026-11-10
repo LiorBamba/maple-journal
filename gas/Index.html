@@ -1,0 +1,2550 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="מייפל">
+  <link rel="apple-touch-icon" href="https://emojicdn.elk.sh/🐕?size=180">
+  <link rel="manifest" href="data:application/manifest+json;utf-8,%7B%22name%22%3A%22%D7%94%D7%99%D7%95%D7%9E%D7%9F%20%D7%A9%D7%9C%20%D7%9E%D7%99%D7%99%D7%A4%D7%9C%22%2C%22short_name%22%3A%22%D7%9E%D7%99%D7%99%D7%A4%D7%9C%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f8fafc%22%2C%22theme_color%22%3A%22%234f46e5%22%7D">
+
+  <title>Maple Journal - מעקב מייפל</title>
+
+  <!-- Google Fonts: Rubik -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            rubik: ['Rubik', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js 4.4 + Luxon + Plugins -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/dist/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+  <style>
+    * {
+      font-family: 'Rubik', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+    /* LTR strictly enforced for Time & Duration inputs to prevent digit reversal */
+    .input-time, .input-ltr {
+      direction: ltr !important;
+      text-align: center !important;
+      unicode-bidi: bidi-override;
+    }
+    /* Sliders must remain LTR: 1 on the left, 5 on the right */
+    .slider-ltr {
+      direction: ltr !important;
+    }
+    /* Smooth tab switching transitions */
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    /* Custom scrollbar for mobile lists */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col pb-20 md:pb-8">
+
+  <!-- Top App Bar -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 space-x-reverse">
+        <span class="text-3xl select-none" role="img" aria-label="dog">🐕</span>
+        <div>
+          <h1 class="text-xl font-bold text-slate-800 leading-tight">המעקב של מייפל</h1>
+          <p class="text-xs text-slate-500 font-medium">יומן אימונים, האכלות ומשימות</p>
+        </div>
+      </div>
+
+      <!-- Sync / Refresh Button -->
+      <div class="flex items-center space-x-2 space-x-reverse">
+        <button id="btnRefresh" onclick="refreshAllData()" title="רענן נתונים"
+          class="p-2 rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition active:scale-95 flex items-center gap-1.5 text-sm font-medium">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">רענון</span>
+        </button>
+        <a href="https://docs.google.com/spreadsheets/d/1URUI3gpIa2wx_gQdEawCDRp8Tw4h20gun2zeegC-Oz8" target="_blank"
+          title="פתח גיליון גוגל"
+          class="p-2 rounded-xl text-slate-600 hover:text-emerald-600 hover:bg-slate-100 transition active:scale-95 flex items-center gap-1.5 text-sm font-medium">
+          <i data-lucide="sheet" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">גוגל שיטס</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Desktop Navigation Tabs -->
+    <div class="hidden md:block border-t border-slate-100 bg-slate-50/50">
+      <div class="max-w-5xl mx-auto px-4 flex space-x-2 space-x-reverse">
+        <button onclick="switchTab('training')" id="desktop-tab-training"
+          class="nav-tab-btn py-3 px-4 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 flex items-center gap-2">
+          <span>🏃</span> הישארות לבד
+        </button>
+        <button onclick="switchTab('feeding')" id="desktop-tab-feeding"
+          class="nav-tab-btn py-3 px-4 text-sm font-semibold border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-2">
+          <span>🦴</span> האכלות
+        </button>
+        <button onclick="switchTab('tasks')" id="desktop-tab-tasks"
+          class="nav-tab-btn py-3 px-4 text-sm font-semibold border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-2">
+          <span>🎓</span> משימות
+        </button>
+        <button onclick="switchTab('history')" id="desktop-tab-history"
+          class="nav-tab-btn py-3 px-4 text-sm font-semibold border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-2">
+          <span>📊</span> היסטוריה ויומן
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-5xl mx-auto px-4 py-6 w-full flex-1">
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: הישארות לבד (Separation Training & Away Stays) -->
+    <!-- ========================================================================= -->
+    <section id="tab-training" class="tab-content active space-y-6">
+      
+      <!-- Section Title -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">תיעוד חשיפה ונטישות</h2>
+          <p class="text-xs text-slate-500">אימוני פרידה הדרגתיים, מעקב עומס והיעדרויות</p>
+        </div>
+      </div>
+
+      <!-- Add Training Session Form Card -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+        <div class="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-600"></i>
+          <h3 class="font-bold text-slate-800 text-base">📝 הוספת אימון חדש</h3>
+        </div>
+
+        <form id="formTraining" onsubmit="handleTrainingSubmit(event)" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Date -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">📅 תאריך</label>
+              <input type="date" id="trainDate" required
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition">
+            </div>
+
+            <!-- Start Time (LTR Centered) -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">⏰ שעת התחלה (יציאה)</label>
+              <input type="time" id="trainTime" required
+                class="input-time w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm font-semibold tracking-wider focus:ring-2 focus:ring-indigo-500 focus:outline-none transition">
+            </div>
+          </div>
+
+          <!-- Duration (hours, 0.25 step) -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold text-slate-600">⏳ משך זמן (שעות)</label>
+              <span id="trainDurationDisplay" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">2.50 שעות</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="trainDurationSlider" min="0.25" max="12.0" step="0.25" value="2.5"
+                class="slider-ltr w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                oninput="syncTrainDuration(this.value, 'slider')">
+              <input type="number" id="trainDurationNum" min="0.25" max="12.0" step="0.25" value="2.5"
+                class="input-ltr w-24 bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-sm font-bold text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                oninput="syncTrainDuration(this.value, 'number')">
+            </div>
+          </div>
+
+          <!-- Dynamic Info Helper Banner -->
+          <div id="trainCalcBanner" class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-900 flex items-center gap-2">
+            <span class="text-base select-none">💡</span>
+            <div id="trainCalcText" class="font-medium">
+              יציאה: <b id="calcStart">--:--</b> | חזרה משוערת: <b id="calcEnd">--:--</b> | סה״כ: <b id="calcDur">2.50 שעות</b>
+            </div>
+          </div>
+
+          <!-- Stress Level Selector (1-5) -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs font-semibold text-slate-600">😰 מדד לחץ</label>
+              <span id="stressSelectedLabel" class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">2 - אי-שקט קל 🟡</span>
+            </div>
+            
+            <div class="grid grid-cols-5 gap-1.5">
+              <button type="button" onclick="selectStress(1)" id="stress-btn-1"
+                class="stress-btn py-2 px-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-center transition flex flex-col items-center">
+                <span class="text-lg">🟢</span>
+                <span class="text-[10px] font-bold mt-0.5">1 רגועה</span>
+              </button>
+              <button type="button" onclick="selectStress(2)" id="stress-btn-2"
+                class="stress-btn py-2 px-1 rounded-xl border-2 border-yellow-500 bg-yellow-50 text-center transition flex flex-col items-center shadow-sm">
+                <span class="text-lg">🟡</span>
+                <span class="text-[10px] font-bold mt-0.5">2 קל</span>
+              </button>
+              <button type="button" onclick="selectStress(3)" id="stress-btn-3"
+                class="stress-btn py-2 px-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-center transition flex flex-col items-center">
+                <span class="text-lg">🟠</span>
+                <span class="text-[10px] font-bold mt-0.5">3 בינוני</span>
+              </button>
+              <button type="button" onclick="selectStress(4)" id="stress-btn-4"
+                class="stress-btn py-2 px-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-center transition flex flex-col items-center">
+                <span class="text-lg">🔴</span>
+                <span class="text-[10px] font-bold mt-0.5">4 מצוקה</span>
+              </button>
+              <button type="button" onclick="selectStress(5)" id="stress-btn-5"
+                class="stress-btn py-2 px-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-center transition flex flex-col items-center">
+                <span class="text-lg">🚨</span>
+                <span class="text-[10px] font-bold mt-0.5">5 פאניקה</span>
+              </button>
+            </div>
+            <input type="hidden" id="trainStress" value="2">
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">📝 הערות</label>
+            <input type="text" id="trainNotes"
+              placeholder="מה עשתה? עם מה הושארה? (למשל: נשארה רגועה במיטה)"
+              class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition">
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="btnSubmitTraining"
+            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition transform active:scale-[0.99] flex items-center justify-center gap-2">
+            <i data-lucide="save" class="w-5 h-5"></i>
+            <span>שמור אימון 💾</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Composite Training & Away Intensity Chart -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🐕</span>
+            <div>
+              <h3 class="font-bold text-slate-800 text-base">ניתוח עומס והתקדמות של מייפל</h3>
+              <p class="text-xs text-slate-500">עצימות משוקללת (דעיכה של 7 ימים), אזורי אחוזונים ושיאים</p>
+            </div>
+          </div>
+
+          <!-- Time Range Selector -->
+          <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto text-xs font-semibold">
+            <button onclick="setChartTimeRange(7)" id="range-btn-7" class="chart-range-btn px-2.5 py-1 rounded-lg text-slate-600 transition">7 ימים</button>
+            <button onclick="setChartTimeRange(30)" id="range-btn-30" class="chart-range-btn px-2.5 py-1 rounded-lg text-slate-600 transition">30 יום</button>
+            <button onclick="setChartTimeRange(60)" id="range-btn-60" class="chart-range-btn px-2.5 py-1 rounded-lg bg-white shadow-sm text-indigo-600 font-bold transition">חודשיים</button>
+            <button onclick="setChartTimeRange(0)" id="range-btn-0" class="chart-range-btn px-2.5 py-1 rounded-lg text-slate-600 transition">הכל</button>
+          </div>
+        </div>
+
+        <!-- Chart Canvas Container -->
+        <div class="relative w-full h-80 sm:h-96">
+          <canvas id="trainingChart"></canvas>
+        </div>
+
+        <!-- Legend Explanations -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-[11px] text-slate-600 border-t border-slate-100">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-[#1f2937]"></span>
+            <span>עצימות משוקללת</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-sm bg-blue-400/40 border border-blue-400"></span>
+            <span>עומס קל (אחוזון 33)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-sm bg-green-500/40 border border-green-500"></span>
+            <span>טווח אידיאלי (אחוזון 90)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-sm bg-red-500/40 border border-red-500"></span>
+            <span>עומס יתר / שיא</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Away Log Form (Accordion / Card) -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+        <button type="button" onclick="toggleAccordion('awayLogCardContent', 'awayChevron')"
+          class="w-full flex items-center justify-between text-right">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🏡</span>
+            <div>
+              <h3 class="font-bold text-slate-800 text-base">תיעוד היעדרות ממושכת (טיול / אירוח מחוץ לבית)</h3>
+              <p class="text-xs text-slate-500">מסמן רקע צבעוני בגרף מבלי להטות את מדד העצימות</p>
+            </div>
+          </div>
+          <i data-lucide="chevron-down" id="awayChevron" class="w-5 h-5 text-slate-400 transition-transform duration-200"></i>
+        </button>
+
+        <div id="awayLogCardContent" class="hidden mt-4 pt-4 border-t border-slate-100 space-y-4">
+          <p class="text-xs text-slate-600 leading-relaxed">
+            משתמשים בחלק זה לתיעוד היעדרויות ארוכות כדי שהזמן יסומן בצבע המתאים על הגרף ולא יטה את מדד העצימות.
+          </p>
+
+          <form id="formAway" onsubmit="handleAwaySubmit(event)" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">📅 תאריך תחילת היעדרות</label>
+                <input type="date" id="awayStart" required onchange="calcAwayDays()"
+                  class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">📅 תאריך חזרה</label>
+                <input type="date" id="awayEnd" required onchange="calcAwayDays()"
+                  class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">📍 איפה מייפל תשהה?</label>
+              <select id="awayLocation"
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="אצל יאיר במשק 🚜">אצל יאיר במשק 🚜 (סגול)</option>
+                <option value="אצל ניקול בהרצליה 🏖️">אצל ניקול בהרצליה 🏖️ (טורקיז)</option>
+                <option value="אצל חברים בתל אביב 🏙️">אצל חברים בתל אביב 🏙️ (כחול)</option>
+                <option value="בבית כשמישהו שומר עליה 🏠">בבית כשמישהו שומר עליה 🏠 (כתום)</option>
+                <option value="פנסיון 🐾">פנסיון 🐾 (ורוד)</option>
+                <option value="אחר ✨" selected>אחר ✨ (אינדיגו)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">📝 הערות על התקופה</label>
+              <input type="text" id="awayNotes" placeholder="איך הגיבה? האם היו שינויים התנהגותיים?"
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <!-- Dynamic Days Validation Banner -->
+            <div id="awayDaysBanner" class="p-3 rounded-xl text-xs font-medium bg-indigo-50 border border-indigo-100 text-indigo-900 flex items-center gap-2">
+              <span class="text-base">💡</span>
+              <span id="awayDaysText">סה״כ זמן היעדרות מתוכנן: <b>14 ימים</b></span>
+            </div>
+
+            <button type="submit" id="btnSubmitAway"
+              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition transform active:scale-[0.99] flex items-center justify-center gap-2">
+              <i data-lucide="save" class="w-5 h-5"></i>
+              <span>שמור היעדרות 💾</span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: האכלות (Feeding Tracker) -->
+    <!-- ========================================================================= -->
+    <section id="tab-feeding" class="tab-content space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">יומן אכילה</h2>
+          <p class="text-xs text-slate-500">תיעוד ארוחות יומיות, מעקב כמות וסיום מנה</p>
+        </div>
+      </div>
+
+      <!-- Add Feeding Form Card -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+        <div class="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
+          <i data-lucide="utensils" class="w-5 h-5 text-indigo-600"></i>
+          <h3 class="font-bold text-slate-800 text-base">🍖 הוספת ארוחה</h3>
+        </div>
+
+        <form id="formFeeding" onsubmit="handleFeedingSubmit(event)" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">תאריך</label>
+              <input type="date" id="feedDate" required
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">שעה</label>
+              <input type="time" id="feedTime" required
+                class="input-time w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm font-semibold tracking-wider focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">סוג ארוחה</label>
+              <select id="feedType"
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="בוקר" selected>בוקר ☀️</option>
+                <option value="ערב">ערב 🌙</option>
+                <option value="אחר">אחר ✨</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Amount in Cups with Grams Converter (1 cup = 400g) -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold text-slate-600">כמות (כוסות)</label>
+              <span id="feedGramsText" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                1.00 כוס = 400 גרם (1 כוס = 400 גרם)
+              </span>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="feedAmountSlider" min="0.25" max="4.0" step="0.25" value="1.0"
+                class="slider-ltr w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                oninput="syncFeedAmount(this.value, 'slider')">
+              <input type="number" id="feedAmountNum" min="0.25" max="4.0" step="0.25" value="1.0"
+                class="input-ltr w-24 bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-sm font-bold text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                oninput="syncFeedAmount(this.value, 'number')">
+            </div>
+          </div>
+
+          <!-- Finished Checkbox / Toggle -->
+          <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🥣</span>
+              <div>
+                <label for="feedFinished" class="text-xs font-bold text-slate-800 cursor-pointer">האם סיימה הכל?</label>
+                <p class="text-[11px] text-slate-500">סמנו 'לא' אם נשאר אוכל בקערה</p>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="feedFinished" checked class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">הערות נוספות</label>
+            <input type="text" id="feedNotes" placeholder="תיאבון, תוספות, שינויים"
+              class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+
+          <button type="submit" id="btnSubmitFeeding"
+            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition transform active:scale-[0.99] flex items-center justify-center gap-2">
+            <i data-lucide="save" class="w-5 h-5"></i>
+            <span>שמור ארוחה 💾</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Feeding Daily Stacked Bar Chart -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div>
+            <h3 class="font-bold text-slate-800 text-base">מעקב אכילה (ירוק=סיימה, אדום=לא סיימה)</h3>
+            <p class="text-xs text-slate-500">📊 כמות אוכל יומית (כוסות)</p>
+          </div>
+        </div>
+
+        <div class="relative w-full h-72 sm:h-80">
+          <canvas id="feedingChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: משימות (Tasks & Execution Logs) -->
+    <!-- ========================================================================= -->
+    <section id="tab-tasks" class="tab-content space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">ניהול משימות</h2>
+          <p class="text-xs text-slate-500">תרגילי אילוף, תדירות ומעקב ביצועים</p>
+        </div>
+      </div>
+
+      <!-- New Task Definition Form (Accordion) -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+        <button type="button" onclick="toggleAccordion('newTaskCardContent', 'taskChevron')"
+          class="w-full flex items-center justify-between text-right">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">➕</span>
+            <div>
+              <h3 class="font-bold text-slate-800 text-base">יצירת תרגיל חדש במערכת</h3>
+              <p class="text-xs text-slate-500">הוספת תרגיל/משימה לקטלוג</p>
+            </div>
+          </div>
+          <i data-lucide="chevron-down" id="taskChevron" class="w-5 h-5 text-slate-400 transition-transform duration-200"></i>
+        </button>
+
+        <div id="newTaskCardContent" class="hidden mt-4 pt-4 border-t border-slate-100">
+          <form id="formNewTask" onsubmit="handleNewTaskSubmit(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">שם התרגיל *</label>
+              <input type="text" id="taskNameInput" required placeholder="למשל: הישארות במיטה"
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">תדירות (למשל: פעמיים ביום)</label>
+              <input type="text" id="taskFreqInput" placeholder="פעמיים ביום, כל בוקר, וכו'"
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">דגשים לביצוע</label>
+              <input type="text" id="taskDescInput" placeholder="שחרור רק בפקודה, מרחק 3 מטרים..."
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <button type="submit" id="btnSubmitNewTask"
+              class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-4 rounded-xl shadow transition">
+              צור תרגיל ➕
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Log Task Execution Form Card -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+        <div class="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
+          <i data-lucide="check-circle" class="w-5 h-5 text-indigo-600"></i>
+          <h3 class="font-bold text-slate-800 text-base">✅ תיעוד ביצוע תרגיל</h3>
+        </div>
+
+        <form id="formLogTask" onsubmit="handleLogTaskSubmit(event)" class="space-y-4">
+          <div id="noTasksAlert" class="hidden p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+            אין תרגילים פעילים במערכת. צור תרגיל חדש למעלה.
+          </div>
+
+          <div id="logTaskFields" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">בחר תרגיל לתיעוד:</label>
+              <select id="selTaskName" required
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">תאריך ביצוע</label>
+                <input type="date" id="taskExecDate" required
+                  class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs font-semibold text-slate-600">איך הלך? (1=התחלה, 5=שליטה מלאה)</label>
+                  <span id="taskScoreDisplay" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">3 - בינוני</span>
+                </div>
+                <div dir="ltr" class="mt-1">
+                  <input type="range" id="taskScoreSlider" min="1" max="5" step="1" value="3"
+                    class="slider-ltr w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    oninput="updateTaskScoreLabel(this.value)">
+                  <div class="flex justify-between text-[10px] text-slate-500 px-1 mt-1" dir="ltr">
+                    <span>1 (התחלה)</span>
+                    <span>2</span>
+                    <span>3</span>
+                    <span>4</span>
+                    <span>5 (שליטה מלאה)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">הערות על הביצוע</label>
+              <textarea id="taskExecNotes" rows="2" placeholder="איך הגיבה? כמה פעמים הצליחה?"
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+            </div>
+
+            <button type="submit" id="btnSubmitTaskLog"
+              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition transform active:scale-[0.99] flex items-center justify-center gap-2">
+              <i data-lucide="save" class="w-5 h-5"></i>
+              <span>תיעוד ביצוע 💾</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Task Execution Scatter Plot -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div>
+            <h3 class="font-bold text-slate-800 text-base">מעקב הצלחה לפי תרגיל</h3>
+            <p class="text-xs text-slate-500">ציון איכות (1-5) לאורך ציר הזמן</p>
+          </div>
+        </div>
+
+        <div class="relative w-full h-72 sm:h-80">
+          <canvas id="tasksChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: היסטוריה ויומן (History & Full CRUD Management) -->
+    <!-- ========================================================================= -->
+    <section id="tab-history" class="tab-content space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">היסטוריה ויומן מלא</h2>
+          <p class="text-xs text-slate-500">צפייה ברשומות, עריכה כירורגית ומחיקת שורות</p>
+        </div>
+      </div>
+
+      <!-- Sub-Navigation for History Domains -->
+      <div class="flex overflow-x-auto gap-2 pb-1 no-scrollbar">
+        <button onclick="switchHistoryDomain('training')" id="hdom-btn-training"
+          class="hdom-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm whitespace-nowrap">
+          🏃 אימונים
+        </button>
+        <button onclick="switchHistoryDomain('feeding')" id="hdom-btn-feeding"
+          class="hdom-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 whitespace-nowrap">
+          🦴 האכלות
+        </button>
+        <button onclick="switchHistoryDomain('away')" id="hdom-btn-away"
+          class="hdom-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 whitespace-nowrap">
+          🏡 היעדרויות
+        </button>
+        <button onclick="switchHistoryDomain('tasks')" id="hdom-btn-tasks"
+          class="hdom-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 whitespace-nowrap">
+          🎓 ביצועי משימות
+        </button>
+      </div>
+
+      <!-- History Table / Card Container -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div class="text-xs font-bold text-slate-700" id="historyDomainHeader">
+            רשימת אימונים אחרונים
+          </div>
+          <span class="text-xs text-slate-500 font-medium" id="historyCountBadge">0 רשומות</span>
+        </div>
+
+        <div id="historyTableContainer" class="divide-y divide-slate-100 overflow-x-auto">
+          <!-- Dynamically populated entries -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Edit Item Modal -->
+  <div id="editModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-fadeIn">
+      <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">✏️</span>
+          <h3 id="editModalTitle" class="font-bold text-slate-800 text-sm">עריכת רשומה</h3>
+        </div>
+        <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formEditRecord" onsubmit="handleEditModalSubmit(event)" class="p-5 space-y-4">
+        <input type="hidden" id="editSheetName">
+        <input type="hidden" id="editRowIndex">
+        
+        <div id="editFieldsContainer" class="space-y-3">
+          <!-- Dynamic Form Fields -->
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeEditModal()"
+            class="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition">
+            ביטול
+          </button>
+          <button type="submit" id="btnSaveEdit"
+            class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md transition">
+            שמור שינויים 💾
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Dialog Modal -->
+  <div id="deleteModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h4 class="font-bold text-slate-800">אישור מחיקה</h4>
+          <p class="text-xs text-slate-500">פעולה זו תמחק את השורה לצמיתות מהגיליון.</p>
+        </div>
+      </div>
+      
+      <p id="deleteModalMessage" class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100"></p>
+
+      <div class="flex gap-2">
+        <button onclick="closeDeleteModal()"
+          class="flex-1 py-2 px-3 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50">
+          ביטול
+        </button>
+        <button id="btnConfirmDelete" onclick="executeDeleteRecord()"
+          class="flex-1 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow">
+          כן, מחק 🗑️
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-20 md:bottom-6 start-4 end-4 md:start-auto md:end-6 z-50 pointer-events-none flex flex-col items-center md:items-end gap-2"></div>
+
+  <!-- Global Loading Spinner Overlay -->
+  <div id="loadingOverlay" class="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-[2px] hidden items-center justify-center">
+    <div class="bg-white rounded-2xl p-4 shadow-xl border border-slate-100 flex items-center gap-3">
+      <svg class="animate-spin w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span id="loadingMessage" class="text-xs font-bold text-slate-700">שומר נתונים...</span>
+    </div>
+  </div>
+
+  <!-- Mobile Sticky Bottom Navigation Bar -->
+  <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 px-2 py-1 flex justify-around">
+    <button onclick="switchTab('training')" id="mobile-tab-training"
+      class="nav-tab-btn flex-1 py-1.5 flex flex-col items-center text-indigo-600 font-bold transition">
+      <span class="text-lg">🏃</span>
+      <span class="text-[10px] mt-0.5">הישארות</span>
+    </button>
+    <button onclick="switchTab('feeding')" id="mobile-tab-feeding"
+      class="nav-tab-btn flex-1 py-1.5 flex flex-col items-center text-slate-500 font-medium transition">
+      <span class="text-lg">🦴</span>
+      <span class="text-[10px] mt-0.5">האכלות</span>
+    </button>
+    <button onclick="switchTab('tasks')" id="mobile-tab-tasks"
+      class="nav-tab-btn flex-1 py-1.5 flex flex-col items-center text-slate-500 font-medium transition">
+      <span class="text-lg">🎓</span>
+      <span class="text-[10px] mt-0.5">משימות</span>
+    </button>
+    <button onclick="switchTab('history')" id="mobile-tab-history"
+      class="nav-tab-btn flex-1 py-1.5 flex flex-col items-center text-slate-500 font-medium transition">
+      <span class="text-lg">📊</span>
+      <span class="text-[10px] mt-0.5">היסטוריה</span>
+    </button>
+  </nav>
+
+  <!-- ========================================================================= -->
+  <!-- CLIENT APPLICATION JAVASCRIPT LOGIC -->
+  <!-- ========================================================================= -->
+  <script>
+    // Injected bootstrapped data from GAS backend, or local mock fallback
+    var BOOTSTRAP_DATA = null;
+    try {
+      // In Google Apps Script: <?!= JSON.stringify(initialData) ?>
+      BOOTSTRAP_DATA = <?!= JSON.stringify(initialData) ?>;
+    } catch (e) {
+      // Local development or preview fallback
+      BOOTSTRAP_DATA = null;
+    }
+
+    // Default mock dataset if not running within live Apps Script template
+    if (!BOOTSTRAP_DATA || BOOTSTRAP_DATA.error) {
+      BOOTSTRAP_DATA = {
+        training: [
+          { rowIndex: 2, date: '2026-11-01', time: '10:00', duration: 1.5, stressLevel: 1, notes: 'נשארה רגועה במיטה' },
+          { rowIndex: 3, date: '2026-11-03', time: '14:30', duration: 2.25, stressLevel: 2, notes: 'אי-שקט קל בהתחלה' },
+          { rowIndex: 4, date: '2026-11-05', time: '09:15', duration: 3.0, stressLevel: 3, notes: 'נבחה קלות וחזרה לנוח' },
+          { rowIndex: 5, date: '2026-11-08', time: '12:00', duration: 4.5, stressLevel: 4, notes: 'מצוקה בעקבות רעש בחוץ' },
+          { rowIndex: 6, date: '2026-11-10', time: '11:00', duration: 3.5, stressLevel: 2, notes: 'אימון מעולה' }
+        ],
+        awayLog: [
+          { rowIndex: 2, startDate: '2026-10-15', endDate: '2026-10-22', location: 'אצל יאיר במשק 🚜', daysCount: 7, notes: 'הסתדרה מצוין' },
+          { rowIndex: 3, startDate: '2026-11-12', endDate: '2026-11-16', location: 'אצל ניקול בהרצליה 🏖️', daysCount: 4, notes: 'חופשה' }
+        ],
+        feeding: [
+          { rowIndex: 2, date: '2026-11-09', time: '08:00', type: 'בוקר', amount: 1.0, finished: 'כן', notes: '' },
+          { rowIndex: 3, date: '2026-11-09', time: '19:00', type: 'ערב', amount: 1.0, finished: 'כן', notes: '' },
+          { rowIndex: 4, date: '2026-11-10', time: '08:15', type: 'בוקר', amount: 1.25, finished: 'כן', notes: 'עם תוסף' },
+          { rowIndex: 5, date: '2026-11-10', time: '19:30', type: 'ערב', amount: 1.0, finished: 'לא', notes: 'השאירה רבע כוס' }
+        ],
+        tasks: [
+          { rowIndex: 2, taskName: 'הישארות במיטה', frequency: 'פעמיים ביום', description: 'שחרור רק בפקודה, מרחק 3 מטר', status: 'Active' },
+          { rowIndex: 3, taskName: 'הליכה רגועה ברצועה', frequency: 'בכל טיול', description: 'עצירה כשיש משיכה', status: 'Active' },
+          { rowIndex: 4, taskName: 'מגע בכפות רגליים', frequency: 'פעם ביום', description: 'חיזוקים חיוביים עם חטיף', status: 'Active' }
+        ],
+        taskLogs: [
+          { rowIndex: 2, date: '2026-11-08', taskName: 'הישארות במיטה', success: 4, notes: 'נשארה 5 דקות שלמות' },
+          { rowIndex: 3, date: '2026-11-09', taskName: 'הליכה רגועה ברצועה', success: 3, notes: 'קצת משכה ליד חתול' },
+          { rowIndex: 4, date: '2026-11-10', taskName: 'הישארות במיטה', success: 5, notes: 'מושלם ללא שום תזוזה' }
+        ],
+        defaultDuration: 2.25
+      };
+    }
+
+    // Application State
+    var state = {
+      activeTab: 'training',
+      historyDomain: 'training',
+      chartRangeDays: 60,
+      data: JSON.parse(JSON.stringify(BOOTSTRAP_DATA)),
+      charts: {
+        training: null,
+        feeding: null,
+        tasks: null
+      },
+      deletePending: null
+    };
+
+    // Location colors specification
+    var LOCATION_COLORS = {
+      "אצל יאיר במשק 🚜": { color: "#8E24AA", rgba: "rgba(142, 36, 170, 0.22)" },
+      "אצל ניקול בהרצליה 🏖️": { color: "#00897B", rgba: "rgba(0, 137, 123, 0.22)" },
+      "אצל חברים בתל אביב 🏙️": { color: "#1E88E5", rgba: "rgba(30, 136, 229, 0.22)" },
+      "בבית כשמישהו שומר עליה 🏠": { color: "#FB8C00", rgba: "rgba(251, 140, 0, 0.22)" },
+      "פנסיון 🐾": { color: "#D81B60", rgba: "rgba(216, 27, 96, 0.22)" },
+      "אחר ✨": { color: "#5E35B1", rgba: "rgba(94, 53, 177, 0.22)" }
+    };
+
+    // Stress descriptive text map
+    var STRESS_MAP = {
+      1: { label: "1 - רגועה לחלוטין 🟢", color: "#22c55e", bg: "bg-emerald-50", text: "text-emerald-700" },
+      2: { label: "2 - אי-שקט קל 🟡", color: "#eab308", bg: "bg-yellow-50", text: "text-yellow-700" },
+      3: { label: "3 - לחץ בינוני 🟠", color: "#f97316", bg: "bg-orange-50", text: "text-orange-700" },
+      4: { label: "4 - מצוקה גבוהה 🔴", color: "#ef4444", bg: "bg-red-50", text: "text-red-700" },
+      5: { label: "5 - פאניקה 🚨", color: "#b91c1c", bg: "bg-rose-50", text: "text-rose-700" }
+    };
+
+    /**
+     * Promise wrapper around google.script.run
+     */
+    function callServer(method, ...args) {
+      return new Promise(function(resolve, reject) {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(function(err) {
+              reject(err);
+            })[method](...args);
+        } else {
+          // Local mock handler
+          console.warn('Local mock executing:', method, args);
+          setTimeout(function() {
+            var mockRes = simulateLocalServer(method, args);
+            resolve(mockRes);
+          }, 350);
+        }
+      });
+    }
+
+    /**
+     * Local mock simulation for testing outside Google Apps Script environment
+     */
+    function simulateLocalServer(method, args) {
+      if (method === 'getInitialData') {
+        return state.data;
+      }
+      if (method === 'addTrainingSession') {
+        var rec = args[0];
+        var newIdx = state.data.training.length + 2;
+        var newRow = {
+          rowIndex: newIdx,
+          date: rec.date,
+          time: rec.time,
+          duration: Number(rec.duration),
+          stressLevel: Number(rec.stressLevel),
+          notes: rec.notes || ''
+        };
+        state.data.training.push(newRow);
+        return { success: true, message: 'האימון נשמר בהצלחה! (' + rec.time + ', ' + rec.duration + ' שעות)', record: newRow };
+      }
+      if (method === 'addAwayLog') {
+        var rec = args[0];
+        var d1 = new Date(rec.startDate);
+        var d2 = new Date(rec.endDate);
+        var days = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        var newRow = {
+          rowIndex: state.data.awayLog.length + 2,
+          startDate: rec.startDate,
+          endDate: rec.endDate,
+          location: rec.location,
+          daysCount: days,
+          notes: rec.notes || ''
+        };
+        state.data.awayLog.push(newRow);
+        return { success: true, daysCount: days, message: 'תקופת ההיעדרות (' + days + ' ימים) נשמרה בהצלחה!', record: newRow };
+      }
+      if (method === 'addFeeding') {
+        var rec = args[0];
+        var newRow = {
+          rowIndex: state.data.feeding.length + 2,
+          date: rec.date,
+          time: rec.time,
+          type: rec.type,
+          amount: Number(rec.amount),
+          finished: rec.finished ? 'כן' : 'לא',
+          notes: rec.notes || ''
+        };
+        state.data.feeding.push(newRow);
+        return { success: true, message: 'הארוחה נשמרה!', record: newRow };
+      }
+      if (method === 'addTask') {
+        var rec = args[0];
+        var newRow = {
+          rowIndex: state.data.tasks.length + 2,
+          taskName: rec.taskName,
+          frequency: rec.frequency,
+          description: rec.description,
+          status: 'Active'
+        };
+        state.data.tasks.push(newRow);
+        return { success: true, message: 'התרגיל נוסף לרשימה!', record: newRow };
+      }
+      if (method === 'logTaskExecution') {
+        var rec = args[0];
+        var newRow = {
+          rowIndex: state.data.taskLogs.length + 2,
+          date: rec.date,
+          taskName: rec.taskName,
+          success: Number(rec.success),
+          notes: rec.notes || ''
+        };
+        state.data.taskLogs.push(newRow);
+        return { success: true, message: 'הביצוע תועד בהצלחה!', record: newRow };
+      }
+      if (method === 'updateRow') {
+        var sheetName = args[0];
+        var rowIdx = args[1];
+        var rowData = args[2];
+        return { success: true, message: 'שורה ' + rowIdx + ' עודכנה!' };
+      }
+      if (method === 'deleteRow') {
+        var sheetName = args[0];
+        var rowIdx = args[1];
+        return { success: true, message: 'שורה ' + rowIdx + ' נמחקה!' };
+      }
+      return { success: true };
+    }
+
+    /* =========================================================================
+     * INITIALIZATION & LIFECYCLE
+     * ========================================================================= */
+    document.addEventListener('DOMContentLoaded', function() {
+      lucide.createIcons();
+      initDateInputs();
+      initDefaultDurations();
+      populateActiveTasksDropdown();
+      renderTrainingChart();
+      renderFeedingChart();
+      renderTasksChart();
+      renderHistoryList();
+    });
+
+    /**
+     * Initialize date & time form pickers with current Israel Standard Time
+     */
+    function initDateInputs() {
+      var now = new Date();
+      // Format YYYY-MM-DD
+      var year = now.getFullYear();
+      var month = ('0' + (now.getMonth() + 1)).slice(-2);
+      var day = ('0' + now.getDate()).slice(-2);
+      var todayStr = year + '-' + month + '-' + day;
+
+      // Format HH:MM
+      var hours = ('0' + now.getHours()).slice(-2);
+      var minutes = ('0' + now.getMinutes()).slice(-2);
+      var timeStr = hours + ':' + minutes;
+
+      // Plus 14 days for default away end date
+      var future = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+      var fYear = future.getFullYear();
+      var fMonth = ('0' + (future.getMonth() + 1)).slice(-2);
+      var fDay = ('0' + future.getDate()).slice(-2);
+      var futureStr = fYear + '-' + fMonth + '-' + fDay;
+
+      // Set input values
+      var elTrainDate = document.getElementById('trainDate');
+      var elTrainTime = document.getElementById('trainTime');
+      if (elTrainDate) elTrainDate.value = todayStr;
+      if (elTrainTime) elTrainTime.value = timeStr;
+
+      var elAwayStart = document.getElementById('awayStart');
+      var elAwayEnd = document.getElementById('awayEnd');
+      if (elAwayStart) elAwayStart.value = todayStr;
+      if (elAwayEnd) elAwayEnd.value = futureStr;
+
+      var elFeedDate = document.getElementById('feedDate');
+      var elFeedTime = document.getElementById('feedTime');
+      if (elFeedDate) elFeedDate.value = todayStr;
+      if (elFeedTime) elFeedTime.value = timeStr;
+
+      var elTaskDate = document.getElementById('taskExecDate');
+      if (elTaskDate) elTaskDate.value = todayStr;
+
+      updateTrainCalcBanner();
+      calcAwayDays();
+    }
+
+    /**
+     * Initializes default training duration dynamically
+     */
+    function initDefaultDurations() {
+      var dur = state.data.defaultDuration || 2.5;
+      syncTrainDuration(dur, 'both');
+    }
+
+    /**
+     * Populates the active tasks dropdown in the Task Execution form
+     */
+    function populateActiveTasksDropdown() {
+      var sel = document.getElementById('selTaskName');
+      var noTasks = document.getElementById('noTasksAlert');
+      var fields = document.getElementById('logTaskFields');
+      if (!sel) return;
+
+      var activeTasks = (state.data.tasks || []).filter(function(t) {
+        return !t.status || t.status === 'Active';
+      });
+
+      sel.innerHTML = '';
+      if (activeTasks.length === 0) {
+        if (noTasks) noTasks.classList.remove('hidden');
+        if (fields) fields.classList.add('opacity-50', 'pointer-events-none');
+      } else {
+        if (noTasks) noTasks.classList.add('hidden');
+        if (fields) fields.classList.remove('opacity-50', 'pointer-events-none');
+        activeTasks.forEach(function(t) {
+          var opt = document.createElement('option');
+          opt.value = t.taskName;
+          opt.textContent = t.taskName + (t.frequency ? ' (' + t.frequency + ')' : '');
+          sel.appendChild(opt);
+        });
+      }
+    }
+
+    /* =========================================================================
+     * NAVIGATION & TAB SWITCHING
+     * ========================================================================= */
+    function switchTab(tabId) {
+      state.activeTab = tabId;
+
+      // Update tab contents
+      document.querySelectorAll('.tab-content').forEach(function(el) {
+        el.classList.remove('active');
+      });
+      var activeEl = document.getElementById('tab-' + tabId);
+      if (activeEl) activeEl.classList.add('active');
+
+      // Update Desktop Nav styles
+      document.querySelectorAll('.nav-tab-btn').forEach(function(btn) {
+        btn.classList.remove('border-indigo-600', 'text-indigo-600');
+        btn.classList.add('border-transparent', 'text-slate-600');
+      });
+      var dBtn = document.getElementById('desktop-tab-' + tabId);
+      if (dBtn) {
+        dBtn.classList.remove('border-transparent', 'text-slate-600');
+        dBtn.classList.add('border-indigo-600', 'text-indigo-600');
+      }
+
+      // Update Mobile Nav styles
+      ['training', 'feeding', 'tasks', 'history'].forEach(function(t) {
+        var mBtn = document.getElementById('mobile-tab-' + t);
+        if (mBtn) {
+          if (t === tabId) {
+            mBtn.classList.add('text-indigo-600', 'font-bold');
+            mBtn.classList.remove('text-slate-500', 'font-medium');
+          } else {
+            mBtn.classList.remove('text-indigo-600', 'font-bold');
+            mBtn.classList.add('text-slate-500', 'font-medium');
+          }
+        }
+      });
+
+      // Resize or render charts on tab switch to prevent canvas sizing glitch
+      setTimeout(function() {
+        if (tabId === 'training' && state.charts.training) {
+          state.charts.training.resize();
+        } else if (tabId === 'feeding') {
+          renderFeedingChart();
+        } else if (tabId === 'tasks') {
+          renderTasksChart();
+        } else if (tabId === 'history') {
+          renderHistoryList();
+        }
+      }, 50);
+    }
+
+    function toggleAccordion(contentId, chevronId) {
+      var content = document.getElementById(contentId);
+      var chevron = document.getElementById(chevronId);
+      if (!content) return;
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        if (chevron) chevron.classList.add('rotate-180');
+      } else {
+        content.classList.add('hidden');
+        if (chevron) chevron.classList.remove('rotate-180');
+      }
+    }
+
+    /* =========================================================================
+     * FORM INTERACTIVITY & REAL-TIME CALCULATORS
+     * ========================================================================= */
+    function syncTrainDuration(val, source) {
+      var num = parseFloat(val);
+      if (isNaN(num)) num = 0.25;
+      num = Math.max(0.25, Math.min(12.0, Math.round(num * 4) / 4));
+      
+      var sSlider = document.getElementById('trainDurationSlider');
+      var sNum = document.getElementById('trainDurationNum');
+      var sDisp = document.getElementById('trainDurationDisplay');
+
+      if (source === 'slider' && sNum) sNum.value = num.toFixed(2);
+      if (source === 'number' && sSlider) sSlider.value = num;
+      if (source === 'both') {
+        if (sSlider) sSlider.value = num;
+        if (sNum) sNum.value = num.toFixed(2);
+      }
+      if (sDisp) sDisp.textContent = num.toFixed(2) + ' שעות';
+
+      updateTrainCalcBanner();
+    }
+
+    function updateTrainCalcBanner() {
+      var timeVal = document.getElementById('trainTime')?.value || '10:00';
+      var durVal = parseFloat(document.getElementById('trainDurationSlider')?.value || 2.5);
+      
+      var parts = timeVal.split(':');
+      var h = parseInt(parts[0], 10) || 0;
+      var m = parseInt(parts[1], 10) || 0;
+
+      var startMinutes = h * 60 + m;
+      var endMinutes = Math.round(startMinutes + durVal * 60);
+
+      var endH = Math.floor((endMinutes / 60) % 24);
+      var endM = Math.floor(endMinutes % 60);
+
+      var endStr = ('0' + endH).slice(-2) + ':' + ('0' + endM).slice(-2);
+
+      var elStart = document.getElementById('calcStart');
+      var elEnd = document.getElementById('calcEnd');
+      var elDur = document.getElementById('calcDur');
+
+      if (elStart) elStart.textContent = timeVal;
+      if (elEnd) elEnd.textContent = endStr;
+      if (elDur) elDur.textContent = durVal.toFixed(2) + ' שעות';
+    }
+
+    document.getElementById('trainTime')?.addEventListener('input', updateTrainCalcBanner);
+
+    function selectStress(level) {
+      document.getElementById('trainStress').value = level;
+      var info = STRESS_MAP[level] || STRESS_MAP[2];
+      var labelEl = document.getElementById('stressSelectedLabel');
+      if (labelEl) {
+        labelEl.textContent = info.label;
+        labelEl.className = 'text-xs font-bold px-2 py-0.5 rounded-md ' + info.bg + ' ' + info.text;
+      }
+
+      for (var i = 1; i <= 5; i++) {
+        var btn = document.getElementById('stress-btn-' + i);
+        if (btn) {
+          if (i === level) {
+            btn.className = 'stress-btn py-2 px-1 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-center transition flex flex-col items-center shadow-sm';
+          } else {
+            btn.className = 'stress-btn py-2 px-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-center transition flex flex-col items-center';
+          }
+        }
+      }
+    }
+
+    function calcAwayDays() {
+      var sVal = document.getElementById('awayStart')?.value;
+      var eVal = document.getElementById('awayEnd')?.value;
+      var banner = document.getElementById('awayDaysBanner');
+      var bannerText = document.getElementById('awayDaysText');
+      var btn = document.getElementById('btnSubmitAway');
+      if (!sVal || !eVal || !banner) return;
+
+      var d1 = new Date(sVal);
+      var d2 = new Date(eVal);
+      var diffDays = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 0) {
+        banner.className = 'p-3 rounded-xl text-xs font-medium bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-2';
+        bannerText.textContent = 'תאריך החזרה חייב להיות מאוחר מתאריך ההתחלה.';
+        if (btn) {
+          btn.disabled = true;
+          btn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+      } else {
+        banner.className = 'p-3 rounded-xl text-xs font-medium bg-indigo-50 border border-indigo-100 text-indigo-900 flex items-center gap-2';
+        bannerText.innerHTML = '💡 סה״כ זמן היעדרות מתוכנן: <b>' + diffDays + ' ימים</b>';
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      }
+    }
+
+    function syncFeedAmount(val, source) {
+      var num = parseFloat(val);
+      if (isNaN(num)) num = 1.0;
+      num = Math.max(0.25, Math.min(4.0, Math.round(num * 4) / 4));
+
+      var sSlider = document.getElementById('feedAmountSlider');
+      var sNum = document.getElementById('feedAmountNum');
+      var sGrams = document.getElementById('feedGramsText');
+
+      if (source === 'slider' && sNum) sNum.value = num.toFixed(2);
+      if (source === 'number' && sSlider) sSlider.value = num;
+
+      var grams = Math.round(num * 400);
+      if (sGrams) {
+        sGrams.textContent = num.toFixed(2) + ' כוס = ' + grams + ' גרם (1 כוס = 400 גרם)';
+      }
+    }
+
+    function updateTaskScoreLabel(val) {
+      var num = parseInt(val, 10);
+      var labels = {
+        1: '1 - התחלה 😞',
+        2: '2 - לא משהו 🙁',
+        3: '3 - בינוני 😐',
+        4: '4 - טוב 🙂',
+        5: '5 - שליטה מלאה 🌟'
+      };
+      var disp = document.getElementById('taskScoreDisplay');
+      if (disp) disp.textContent = labels[num] || '3 - בינוני';
+    }
+
+    /* =========================================================================
+     * MUTATION SUBMISSION HANDLERS
+     * ========================================================================= */
+    async function handleTrainingSubmit(e) {
+      e.preventDefault();
+      var date = document.getElementById('trainDate').value;
+      var time = document.getElementById('trainTime').value;
+      var dur = parseFloat(document.getElementById('trainDurationSlider').value);
+      var stress = parseInt(document.getElementById('trainStress').value, 10);
+      var notes = document.getElementById('trainNotes').value;
+
+      if (!dur || dur <= 0) {
+        showToast('משך האימון חייב להיות גדול מ-0!', 'error');
+        return;
+      }
+
+      showSpinner('שומר אימון...');
+      try {
+        var payload = { date: date, time: time, duration: dur, stressLevel: stress, notes: notes };
+        var res = await callServer('addTrainingSession', payload);
+        if (res.success) {
+          showToast(res.message || 'האימון נשמר בהצלחה! 🟢', 'success');
+          // Update local state
+          var newRecord = res.record || {
+            rowIndex: (state.data.training.length + 2),
+            date: date,
+            time: time,
+            duration: dur,
+            stressLevel: stress,
+            notes: notes
+          };
+          state.data.training.push(newRecord);
+          // Recalculate dynamic default duration
+          recalcDefaultDuration();
+          // Reset form fields
+          document.getElementById('trainNotes').value = '';
+          // Refresh chart and history
+          renderTrainingChart();
+          renderHistoryList();
+        } else {
+          showToast('שגיאה בשמירה: ' + (res.error || 'תקלה לא ידועה'), 'error');
+        }
+      } catch (err) {
+        showToast('תקלת תקשורת: ' + err.toString(), 'error');
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    async function handleAwaySubmit(e) {
+      e.preventDefault();
+      var startDate = document.getElementById('awayStart').value;
+      var endDate = document.getElementById('awayEnd').value;
+      var location = document.getElementById('awayLocation').value;
+      var notes = document.getElementById('awayNotes').value;
+
+      var d1 = new Date(startDate);
+      var d2 = new Date(endDate);
+      if (d2 <= d1) {
+        showToast('תאריך החזרה חייב להיות מאוחר מתאריך ההתחלה.', 'warning');
+        return;
+      }
+
+      showSpinner('שומר תקופת היעדרות...');
+      try {
+        var payload = { startDate: startDate, endDate: endDate, location: location, notes: notes };
+        var res = await callServer('addAwayLog', payload);
+        if (res.success) {
+          showToast(res.message || 'תקופת ההיעדרות נשמרה בהצלחה!', 'success');
+          var newRecord = res.record || {
+            rowIndex: (state.data.awayLog.length + 2),
+            startDate: startDate,
+            endDate: endDate,
+            location: location,
+            daysCount: res.daysCount,
+            notes: notes
+          };
+          state.data.awayLog.push(newRecord);
+          document.getElementById('awayNotes').value = '';
+          renderTrainingChart();
+          renderHistoryList();
+          toggleAccordion('awayLogCardContent', 'awayChevron');
+        } else {
+          showToast('שגיאה: ' + (res.error || 'תקלה'), 'error');
+        }
+      } catch (err) {
+        showToast('תקלת תקשורת: ' + err.toString(), 'error');
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    async function handleFeedingSubmit(e) {
+      e.preventDefault();
+      var date = document.getElementById('feedDate').value;
+      var time = document.getElementById('feedTime').value;
+      var type = document.getElementById('feedType').value;
+      var amount = parseFloat(document.getElementById('feedAmountSlider').value);
+      var finished = document.getElementById('feedFinished').checked;
+      var notes = document.getElementById('feedNotes').value;
+
+      showSpinner('שומר ארוחה...');
+      try {
+        var payload = { date: date, time: time, type: type, amount: amount, finished: finished, notes: notes };
+        var res = await callServer('addFeeding', payload);
+        if (res.success) {
+          showToast(res.message || 'הארוחה נשמרה!', 'success');
+          var newRecord = res.record || {
+            rowIndex: (state.data.feeding.length + 2),
+            date: date,
+            time: time,
+            type: type,
+            amount: amount,
+            finished: finished ? 'כן' : 'לא',
+            notes: notes
+          };
+          state.data.feeding.push(newRecord);
+          document.getElementById('feedNotes').value = '';
+          renderFeedingChart();
+          renderHistoryList();
+        } else {
+          showToast('שגיאה: ' + (res.error || 'תקלה'), 'error');
+        }
+      } catch (err) {
+        showToast('תקלת תקשורת: ' + err.toString(), 'error');
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    async function handleNewTaskSubmit(e) {
+      e.preventDefault();
+      var taskName = document.getElementById('taskNameInput').value.trim();
+      var freq = document.getElementById('taskFreqInput').value.trim();
+      var desc = document.getElementById('taskDescInput').value.trim();
+
+      if (!taskName) {
+        showToast('שם התרגיל אינו יכול להיות ריק.', 'warning');
+        return;
+      }
+
+      showSpinner('יוצר תרגיל...');
+      try {
+        var payload = { taskName: taskName, frequency: freq, description: desc };
+        var res = await callServer('addTask', payload);
+        if (res.success) {
+          showToast(res.message || 'התרגיל נוסף לרשימה!', 'success');
+          var newRecord = res.record || {
+            rowIndex: (state.data.tasks.length + 2),
+            taskName: taskName,
+            frequency: freq,
+            description: desc,
+            status: 'Active'
+          };
+          state.data.tasks.push(newRecord);
+          document.getElementById('taskNameInput').value = '';
+          document.getElementById('taskFreqInput').value = '';
+          document.getElementById('taskDescInput').value = '';
+          populateActiveTasksDropdown();
+          renderHistoryList();
+          toggleAccordion('newTaskCardContent', 'taskChevron');
+        } else {
+          showToast('שגיאה: ' + (res.error || 'תקלה'), 'error');
+        }
+      } catch (err) {
+        showToast('תקלת תקשורת: ' + err.toString(), 'error');
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    async function handleLogTaskSubmit(e) {
+      e.preventDefault();
+      var taskName = document.getElementById('selTaskName').value;
+      var date = document.getElementById('taskExecDate').value;
+      var score = parseInt(document.getElementById('taskScoreSlider').value, 10);
+      var notes = document.getElementById('taskExecNotes').value.trim();
+
+      if (!taskName) {
+        showToast('חובה לבחור תרגיל.', 'warning');
+        return;
+      }
+
+      showSpinner('מתעד ביצוע תרגיל...');
+      try {
+        var payload = { taskName: taskName, date: date, success: score, notes: notes };
+        var res = await callServer('logTaskExecution', payload);
+        if (res.success) {
+          showToast(res.message || 'הביצוע תועד בהצלחה!', 'success');
+          var newRecord = res.record || {
+            rowIndex: (state.data.taskLogs.length + 2),
+            date: date,
+            taskName: taskName,
+            success: score,
+            notes: notes
+          };
+          state.data.taskLogs.push(newRecord);
+          document.getElementById('taskExecNotes').value = '';
+          renderTasksChart();
+          renderHistoryList();
+        } else {
+          showToast('שגיאה: ' + (res.error || 'תקלה'), 'error');
+        }
+      } catch (err) {
+        showToast('תקלת תקשורת: ' + err.toString(), 'error');
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    function recalcDefaultDuration() {
+      var maxDur = 0;
+      (state.data.training || []).forEach(function(s) {
+        var d = parseFloat(s.duration);
+        if (!isNaN(d) && d > maxDur) maxDur = d;
+      });
+      if (maxDur > 0) {
+        state.data.defaultDuration = Math.round((maxDur / 2.0) * 4) / 4;
+      } else {
+        state.data.defaultDuration = 2.5;
+      }
+    }
+
+    async function refreshAllData() {
+      showSpinner('מרענן נתונים...');
+      try {
+        var res = await callServer('getInitialData');
+        if (res && !res.error) {
+          state.data = res;
+          populateActiveTasksDropdown();
+          renderTrainingChart();
+          renderFeedingChart();
+          renderTasksChart();
+          renderHistoryList();
+          showToast('הנתונים רועננו בהצלחה! 🔄', 'success');
+        } else {
+          showToast('שגיאה בריענון נתונים', 'error');
+        }
+      } catch (err) {
+        showToast('תקלת תקשורת בריענון', 'error');
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    /* =========================================================================
+     * MATHEMATICAL ANALYTICS & CHART RENDERING
+     * ========================================================================= */
+    function setChartTimeRange(days) {
+      state.chartRangeDays = days;
+      document.querySelectorAll('.chart-range-btn').forEach(function(b) {
+        b.className = 'chart-range-btn px-2.5 py-1 rounded-lg text-slate-600 transition';
+      });
+      var activeBtn = document.getElementById('range-btn-' + days);
+      if (activeBtn) {
+        activeBtn.className = 'chart-range-btn px-2.5 py-1 rounded-lg bg-white shadow-sm text-indigo-600 font-bold transition';
+      }
+      renderTrainingChart();
+    }
+
+    /**
+     * Core Algorithm: Computes 7-day half-life exponentially decayed rolling intensity,
+     * 33% and 90% quantile bands, individual session scatter dots, and away stay box overlays.
+     */
+    function computeSeparationMetrics(trainingList, awayList, filterDays) {
+      if (!trainingList || trainingList.length === 0) {
+        return { dailyDates: [], intensityVals: [], q33Vals: [], q90Vals: [], scatterPoints: [], awayBoxes: {} };
+      }
+
+      // 1. Stress-weighted session duration: Duration * (StressLevel / 3.0)
+      var sessions = [];
+      trainingList.forEach(function(s) {
+        var dur = parseFloat(s.duration);
+        var stress = parseInt(s.stressLevel, 10);
+        if (isNaN(dur) || dur <= 0) return;
+        if (isNaN(stress) || stress < 1 || stress > 5) stress = 3;
+
+        var weighted = dur * (stress / 3.0);
+        sessions.push({
+          date: s.date,
+          time: s.time || '12:00',
+          duration: dur,
+          stress: stress,
+          weighted: weighted,
+          fullDateTime: s.date + 'T' + (s.time ? s.time : '12:00')
+        });
+      });
+
+      if (sessions.length === 0) {
+        return { dailyDates: [], intensityVals: [], q33Vals: [], q90Vals: [], scatterPoints: [], awayBoxes: {} };
+      }
+
+      // Sort sessions by date
+      sessions.sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+      // Daily aggregation
+      var dailySum = {};
+      sessions.forEach(function(s) {
+        dailySum[s.date] = (dailySum[s.date] || 0) + s.weighted;
+      });
+
+      // Calendar resampling: Fill daily dates continuously between minDate and maxDate
+      var minDate = new Date(sessions[0].date);
+      var maxDate = new Date(sessions[sessions.length - 1].date);
+      // Ensure at least today is covered
+      var today = new Date();
+      if (today > maxDate) maxDate = today;
+
+      var continuousDates = [];
+      var curr = new Date(minDate);
+      while (curr <= maxDate) {
+        var yr = curr.getFullYear();
+        var mo = ('0' + (curr.getMonth() + 1)).slice(-2);
+        var da = ('0' + curr.getDate()).slice(-2);
+        continuousDates.push(yr + '-' + mo + '-' + da);
+        curr.setDate(curr.getDate() + 1);
+      }
+
+      // Rolling 7-day half-life exponential decay calculation
+      // Intensity(t) = sum_{k=0..6} 0.5^k * Daily_Weighted(t - k)
+      var dailyIntensity = [];
+      for (var i = 0; i < continuousDates.length; i++) {
+        var sumIntensity = 0;
+        for (var k = 0; k < 7; k++) {
+          var targetIdx = i - k;
+          if (targetIdx >= 0) {
+            var targetDate = continuousDates[targetIdx];
+            var dayVal = dailySum[targetDate] || 0;
+            var weight = Math.pow(0.5, k);
+            sumIntensity += weight * dayVal;
+          }
+        }
+        dailyIntensity.push(Number(sumIntensity.toFixed(3)));
+      }
+
+      // Calculate dynamic quantile bands (Q33 and Q90) on active days (> 0.1)
+      var activeDays = dailyIntensity.filter(function(v) { return v > 0.1; });
+      var q33 = 0.5;
+      var q90 = 2.0;
+      if (activeDays.length > 0) {
+        activeDays.sort(function(a, b) { return a - b; });
+        var idx33 = Math.floor(0.33 * (activeDays.length - 1));
+        var idx90 = Math.floor(0.90 * (activeDays.length - 1));
+        q33 = activeDays[idx33];
+        q90 = activeDays[idx90];
+      }
+
+      // Filter by requested time range
+      var cutoffDateStr = null;
+      if (filterDays > 0) {
+        var cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - filterDays);
+        cutoffDateStr = cutoff.toISOString().split('T')[0];
+      }
+
+      var filteredDates = [];
+      var filteredIntensity = [];
+      var filteredQ33 = [];
+      var filteredQ90 = [];
+
+      for (var j = 0; j < continuousDates.length; j++) {
+        var dStr = continuousDates[j];
+        if (!cutoffDateStr || dStr >= cutoffDateStr) {
+          filteredDates.push(dStr);
+          filteredIntensity.push(dailyIntensity[j]);
+          filteredQ33.push(q33);
+          filteredQ90.push(q90);
+        }
+      }
+
+      // Individual session scatter points
+      var scatterPoints = [];
+      sessions.forEach(function(s) {
+        if (!cutoffDateStr || s.date >= cutoffDateStr) {
+          scatterPoints.push({
+            x: s.date, // align to daily X axis
+            y: s.duration,
+            stress: s.stress,
+            time: s.time,
+            notes: s.notes
+          });
+        }
+      });
+
+      // Away stays annotations
+      var awayAnnotations = {};
+      (awayList || []).forEach(function(aw, idx) {
+        if (!aw.startDate || !aw.endDate) return;
+        if (cutoffDateStr && aw.endDate < cutoffDateStr) return;
+
+        var locStyle = LOCATION_COLORS[aw.location] || LOCATION_COLORS["אחר ✨"];
+        awayAnnotations['away_' + idx] = {
+          type: 'box',
+          xMin: aw.startDate,
+          xMax: aw.endDate,
+          backgroundColor: locStyle.rgba,
+          borderWidth: 0,
+          label: {
+            display: true,
+            content: '🏡 ' + aw.location,
+            position: { x: 'start', y: 'start' },
+            font: { family: 'Rubik', size: 10, weight: 'bold' },
+            color: locStyle.color,
+            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+            padding: 4,
+            borderRadius: 4
+          }
+        };
+      });
+
+      return {
+        dailyDates: filteredDates,
+        intensityVals: filteredIntensity,
+        q33Vals: filteredQ33,
+        q90Vals: filteredQ90,
+        scatterPoints: scatterPoints,
+        awayBoxes: awayAnnotations,
+        q33Val: q33,
+        q90Val: q90
+      };
+    }
+
+    function renderTrainingChart() {
+      var canvas = document.getElementById('trainingChart');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+
+      var metrics = computeSeparationMetrics(state.data.training, state.data.awayLog, state.chartRangeDays);
+
+      if (state.charts.training) {
+        state.charts.training.destroy();
+      }
+
+      state.charts.training = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: metrics.dailyDates,
+          datasets: [
+            // Intensity Line
+            {
+              label: 'עצימות משוקללת',
+              data: metrics.intensityVals,
+              borderColor: '#1e293b',
+              backgroundColor: 'rgba(30, 41, 59, 0.05)',
+              borderWidth: 3,
+              tension: 0.3,
+              pointRadius: 0,
+              order: 2
+            },
+            // Q33 Zone (Blue)
+            {
+              label: 'עומס קל (אחוזון 33)',
+              data: metrics.q33Vals,
+              borderColor: 'transparent',
+              backgroundColor: 'rgba(59, 130, 246, 0.12)',
+              fill: 'origin',
+              pointRadius: 0,
+              borderWidth: 0,
+              order: 5
+            },
+            // Q90 Zone (Green)
+            {
+              label: 'טווח אידיאלי (אחוזון 90)',
+              data: metrics.q90Vals,
+              borderColor: 'transparent',
+              backgroundColor: 'rgba(34, 197, 94, 0.12)',
+              fill: '-1',
+              pointRadius: 0,
+              borderWidth: 0,
+              order: 4
+            },
+            // Individual Sessions Scatter Dots
+            {
+              type: 'scatter',
+              label: 'אימונים בודדים',
+              data: metrics.scatterPoints,
+              pointRadius: 7,
+              pointHoverRadius: 9,
+              pointBorderColor: '#ffffff',
+              pointBorderWidth: 1.5,
+              pointBackgroundColor: function(context) {
+                var stress = context.raw?.stress || 3;
+                if (stress === 1) return '#22c55e'; // Green
+                if (stress === 2) return '#84cc16'; // Lime
+                if (stress === 3) return '#eab308'; // Amber
+                if (stress === 4) return '#f97316'; // Orange
+                return '#ef4444'; // Red
+              },
+              order: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'nearest',
+            intersect: false
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                font: { family: 'Rubik', size: 10 },
+                callback: function(val, index) {
+                  var dStr = this.getLabelForValue(val);
+                  if (!dStr) return '';
+                  var p = dStr.split('-');
+                  return p[2] + '/' + p[1];
+                }
+              }
+            },
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'עומס משוקלל / משך (שעות)',
+                font: { family: 'Rubik', size: 11, weight: '600' }
+              },
+              grid: { color: '#f1f5f9' },
+              ticks: { font: { family: 'Rubik', size: 10 } }
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            annotation: {
+              annotations: metrics.awayBoxes
+            },
+            tooltip: {
+              rtl: true,
+              textDirection: 'rtl',
+              titleFont: { family: 'Rubik', size: 12, weight: 'bold' },
+              bodyFont: { family: 'Rubik', size: 11 },
+              callbacks: {
+                title: function(items) {
+                  if (!items || items.length === 0) return '';
+                  return 'תאריך: ' + items[0].label;
+                },
+                label: function(context) {
+                  if (context.dataset.type === 'scatter') {
+                    var raw = context.raw;
+                    var stressInfo = STRESS_MAP[raw.stress] || STRESS_MAP[3];
+                    return [
+                      '⏳ זמן: ' + raw.y + ' שעות (' + (raw.time || '') + ')',
+                      '😰 לחץ: ' + stressInfo.label,
+                      raw.notes ? '📝 הערות: ' + raw.notes : ''
+                    ].filter(Boolean);
+                  }
+                  return context.dataset.label + ': ' + Number(context.raw).toFixed(2);
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderFeedingChart() {
+      var canvas = document.getElementById('feedingChart');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+
+      var feedings = state.data.feeding || [];
+      // Group by date and finished status
+      var dailyMap = {};
+      feedings.forEach(function(f) {
+        if (!f.date) return;
+        if (!dailyMap[f.date]) {
+          dailyMap[f.date] = { finished: 0, unfinished: 0 };
+        }
+        var amt = parseFloat(f.amount) || 0;
+        if (f.finished === 'כן') {
+          dailyMap[f.date].finished += amt;
+        } else {
+          dailyMap[f.date].unfinished += amt;
+        }
+      });
+
+      var sortedDates = Object.keys(dailyMap).sort();
+      // Show last 14 days
+      var recentDates = sortedDates.slice(-14);
+
+      var finishedData = recentDates.map(function(d) { return dailyMap[d].finished; });
+      var unfinishedData = recentDates.map(function(d) { return dailyMap[d].unfinished; });
+
+      if (state.charts.feeding) {
+        state.charts.feeding.destroy();
+      }
+
+      state.charts.feeding = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: recentDates,
+          datasets: [
+            {
+              label: 'סיימה (כן) 🟢',
+              data: finishedData,
+              backgroundColor: '#22c55e',
+              borderRadius: 6
+            },
+            {
+              label: 'לא סיימה (לא) 🔴',
+              data: unfinishedData,
+              backgroundColor: '#ef4444',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              stacked: true,
+              grid: { display: false },
+              ticks: {
+                font: { family: 'Rubik', size: 10 },
+                callback: function(val) {
+                  var dStr = this.getLabelForValue(val);
+                  if (!dStr) return '';
+                  var p = dStr.split('-');
+                  return p[2] + '/' + p[1];
+                }
+              }
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'כמות (כוסות)',
+                font: { family: 'Rubik', size: 11, weight: '600' }
+              },
+              grid: { color: '#f1f5f9' },
+              ticks: { font: { family: 'Rubik', size: 10 } }
+            }
+          },
+          plugins: {
+            legend: {
+              rtl: true,
+              textDirection: 'rtl',
+              labels: { font: { family: 'Rubik', size: 11 } }
+            },
+            tooltip: {
+              rtl: true,
+              textDirection: 'rtl',
+              titleFont: { family: 'Rubik', size: 12 },
+              bodyFont: { family: 'Rubik', size: 11 }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTasksChart() {
+      var canvas = document.getElementById('tasksChart');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+
+      var taskLogs = (state.data.taskLogs || []).slice().sort(function(a, b) {
+        return a.date.localeCompare(b.date);
+      });
+
+      // Distinct tasks with color assignment
+      var taskColors = ['#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
+      var taskNames = Array.from(new Set(taskLogs.map(function(l) { return l.taskName; })));
+
+      var datasets = taskNames.map(function(tName, idx) {
+        var color = taskColors[idx % taskColors.length];
+        var points = taskLogs.filter(function(l) { return l.taskName === tName; }).map(function(l) {
+          return {
+            x: l.date,
+            y: l.success,
+            notes: l.notes
+          };
+        });
+
+        return {
+          label: tName,
+          data: points,
+          backgroundColor: color,
+          borderColor: color,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        };
+      });
+
+      if (state.charts.tasks) {
+        state.charts.tasks.destroy();
+      }
+
+      state.charts.tasks = new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets: datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                font: { family: 'Rubik', size: 10 },
+                callback: function(val) {
+                  var dStr = this.getLabelForValue(val);
+                  if (!dStr) return '';
+                  var p = dStr.split('-');
+                  return p[2] + '/' + p[1];
+                }
+              }
+            },
+            y: {
+              min: 0.5,
+              max: 5.5,
+              ticks: {
+                stepSize: 1,
+                font: { family: 'Rubik', size: 10 }
+              },
+              title: {
+                display: true,
+                text: 'ציון איכות (1-5)',
+                font: { family: 'Rubik', size: 11, weight: '600' }
+              },
+              grid: { color: '#f1f5f9' }
+            }
+          },
+          plugins: {
+            legend: {
+              rtl: true,
+              textDirection: 'rtl',
+              labels: { font: { family: 'Rubik', size: 11 } }
+            },
+            tooltip: {
+              rtl: true,
+              textDirection: 'rtl',
+              titleFont: { family: 'Rubik', size: 12 },
+              bodyFont: { family: 'Rubik', size: 11 },
+              callbacks: {
+                label: function(context) {
+                  var raw = context.raw;
+                  return [
+                    context.dataset.label + ': ' + raw.y + '/5',
+                    raw.notes ? '📝 ' + raw.notes : ''
+                  ].filter(Boolean);
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    /* =========================================================================
+     * HISTORY & CRUD INLINE EDITING / DELETING
+     * ========================================================================= */
+    function switchHistoryDomain(domain) {
+      state.historyDomain = domain;
+      document.querySelectorAll('.hdom-btn').forEach(function(b) {
+        b.className = 'hdom-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 whitespace-nowrap';
+      });
+      var activeBtn = document.getElementById('hdom-btn-' + domain);
+      if (activeBtn) {
+        activeBtn.className = 'hdom-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm whitespace-nowrap';
+      }
+      renderHistoryList();
+    }
+
+    function renderHistoryList() {
+      var container = document.getElementById('historyTableContainer');
+      var headerText = document.getElementById('historyDomainHeader');
+      var badge = document.getElementById('historyCountBadge');
+      if (!container) return;
+
+      var domain = state.historyDomain;
+      container.innerHTML = '';
+
+      if (domain === 'training') {
+        headerText.textContent = 'רשימת אימונים אחרונים';
+        var list = (state.data.training || []).slice().reverse();
+        badge.textContent = list.length + ' אימונים';
+
+        if (list.length === 0) {
+          container.innerHTML = '<div class="p-6 text-center text-slate-400 text-xs">עדיין אין אימונים מוקלטים.</div>';
+          return;
+        }
+
+        list.forEach(function(item) {
+          var sInfo = STRESS_MAP[item.stressLevel] || STRESS_MAP[3];
+          var card = document.createElement('div');
+          card.className = 'p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-3';
+          card.innerHTML = `
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-800 text-sm">${item.date}</span>
+                <span class="text-xs text-slate-500 font-semibold dir-ltr">⏰ ${item.time || ''}</span>
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">⏳ ${item.duration} שעות</span>
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded-md ${sInfo.bg} ${sInfo.text}">${sInfo.label}</span>
+              </div>
+              ${item.notes ? `<p class="text-xs text-slate-600 leading-snug">📝 ${escapeHtml(item.notes)}</p>` : ''}
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="openEditModal('Training', ${item.rowIndex})" title="ערוך שורה"
+                class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                <i data-lucide="edit-2" class="w-4 h-4"></i>
+              </button>
+              <button onclick="confirmDelete('Training', ${item.rowIndex}, 'אימון מתאריך ${item.date} (${item.duration} שעות)')" title="מחק שורה"
+                class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      } else if (domain === 'feeding') {
+        headerText.textContent = 'רשימת ארוחות אחרונות';
+        var list = (state.data.feeding || []).slice().reverse();
+        badge.textContent = list.length + ' ארוחות';
+
+        if (list.length === 0) {
+          container.innerHTML = '<div class="p-6 text-center text-slate-400 text-xs">עדיין אין ארוחות מתועדות.</div>';
+          return;
+        }
+
+        list.forEach(function(item) {
+          var isFin = item.finished === 'כן';
+          var card = document.createElement('div');
+          card.className = 'p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-3';
+          card.innerHTML = `
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-800 text-sm">${item.date}</span>
+                <span class="text-xs text-slate-500 font-semibold dir-ltr">⏰ ${item.time || ''}</span>
+                <span class="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">${item.type}</span>
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">${item.amount} כוס (${Math.round(item.amount * 400)}g)</span>
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded-md ${isFin ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}">
+                  ${isFin ? 'סיימה הכל 🟢' : 'לא סיימה 🔴'}
+                </span>
+              </div>
+              ${item.notes ? `<p class="text-xs text-slate-600 leading-snug">📝 ${escapeHtml(item.notes)}</p>` : ''}
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="openEditModal('Feeding', ${item.rowIndex})" title="ערוך שורה"
+                class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                <i data-lucide="edit-2" class="w-4 h-4"></i>
+              </button>
+              <button onclick="confirmDelete('Feeding', ${item.rowIndex}, 'ארוחת ${item.type} מתאריך ${item.date}')" title="מחק שורה"
+                class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      } else if (domain === 'away') {
+        headerText.textContent = 'רשימת היעדרויות ואירוחים';
+        var list = (state.data.awayLog || []).slice().reverse();
+        badge.textContent = list.length + ' היעדרויות';
+
+        if (list.length === 0) {
+          container.innerHTML = '<div class="p-6 text-center text-slate-400 text-xs">עדיין אין היעדרויות מתועדות.</div>';
+          return;
+        }
+
+        list.forEach(function(item) {
+          var card = document.createElement('div');
+          card.className = 'p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-3';
+          card.innerHTML = `
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-800 text-sm">${item.startDate} עד ${item.endDate}</span>
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">${item.daysCount} ימים</span>
+                <span class="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">📍 ${item.location}</span>
+              </div>
+              ${item.notes ? `<p class="text-xs text-slate-600 leading-snug">📝 ${escapeHtml(item.notes)}</p>` : ''}
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="openEditModal('Away_Log', ${item.rowIndex})" title="ערוך שורה"
+                class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                <i data-lucide="edit-2" class="w-4 h-4"></i>
+              </button>
+              <button onclick="confirmDelete('Away_Log', ${item.rowIndex}, 'היעדרות ${item.location} (${item.startDate})')" title="מחק שורה"
+                class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      } else if (domain === 'tasks') {
+        headerText.textContent = 'ביצועי משימות ותרגילים';
+        var list = (state.data.taskLogs || []).slice().reverse();
+        badge.textContent = list.length + ' ביצועים';
+
+        if (list.length === 0) {
+          container.innerHTML = '<div class="p-6 text-center text-slate-400 text-xs">עדיין אין ביצועי משימות מתועדים.</div>';
+          return;
+        }
+
+        list.forEach(function(item) {
+          var card = document.createElement('div');
+          card.className = 'p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-3';
+          card.innerHTML = `
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-800 text-sm">${item.date}</span>
+                <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">${item.taskName}</span>
+                <span class="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">ציון: ${item.success}/5 ⭐</span>
+              </div>
+              ${item.notes ? `<p class="text-xs text-slate-600 leading-snug">📝 ${escapeHtml(item.notes)}</p>` : ''}
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="openEditModal('TaskLogs', ${item.rowIndex})" title="ערוך שורה"
+                class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                <i data-lucide="edit-2" class="w-4 h-4"></i>
+              </button>
+              <button onclick="confirmDelete('TaskLogs', ${item.rowIndex}, 'ביצוע ${item.taskName} מתאריך ${item.date}')" title="מחק שורה"
+                class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      }
+
+      lucide.createIcons();
+    }
+
+    /**
+     * Opens dynamic edit modal for any of the 4 sheets
+     */
+    function openEditModal(sheetName, rowIndex) {
+      var modal = document.getElementById('editModal');
+      var container = document.getElementById('editFieldsContainer');
+      var title = document.getElementById('editModalTitle');
+      document.getElementById('editSheetName').value = sheetName;
+      document.getElementById('editRowIndex').value = rowIndex;
+      container.innerHTML = '';
+
+      if (sheetName === 'Training') {
+        title.textContent = 'עריכת אימון (שורה ' + rowIndex + ')';
+        var rec = state.data.training.find(function(r) { return r.rowIndex === rowIndex; });
+        if (!rec) return;
+
+        container.innerHTML = `
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">📅 תאריך</label>
+              <input type="date" id="m_edit_date" value="${rec.date}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">⏰ שעה</label>
+              <input type="time" id="m_edit_time" value="${rec.time || '10:00'}" required class="input-time w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-semibold">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">⏳ משך (שעות)</label>
+              <input type="number" id="m_edit_dur" step="0.25" min="0.25" max="12" value="${rec.duration}" required class="input-ltr w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-center">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">😰 לחץ (1-5)</label>
+              <select id="m_edit_stress" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-semibold">
+                <option value="1" ${rec.stressLevel === 1 ? 'selected' : ''}>1 - רגועה לחלוטין 🟢</option>
+                <option value="2" ${rec.stressLevel === 2 ? 'selected' : ''}>2 - אי-שקט קל 🟡</option>
+                <option value="3" ${rec.stressLevel === 3 ? 'selected' : ''}>3 - לחץ בינוני 🟠</option>
+                <option value="4" ${rec.stressLevel === 4 ? 'selected' : ''}>4 - מצוקה גבוהה 🔴</option>
+                <option value="5" ${rec.stressLevel === 5 ? 'selected' : ''}>5 - פאניקה 🚨</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">📝 הערות</label>
+            <input type="text" id="m_edit_notes" value="${escapeHtml(rec.notes || '')}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+          </div>
+        `;
+      } else if (sheetName === 'Feeding') {
+        title.textContent = 'עריכת ארוחה (שורה ' + rowIndex + ')';
+        var rec = state.data.feeding.find(function(r) { return r.rowIndex === rowIndex; });
+        if (!rec) return;
+
+        container.innerHTML = `
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">תאריך</label>
+              <input type="date" id="m_edit_feed_date" value="${rec.date}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">שעה</label>
+              <input type="time" id="m_edit_feed_time" value="${rec.time || '08:00'}" required class="input-time w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-semibold">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">סוג</label>
+              <select id="m_edit_feed_type" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-semibold">
+                <option value="בוקר" ${rec.type === 'בוקר' ? 'selected' : ''}>בוקר ☀️</option>
+                <option value="ערב" ${rec.type === 'ערב' ? 'selected' : ''}>ערב 🌙</option>
+                <option value="אחר" ${rec.type === 'אחר' ? 'selected' : ''}>אחר ✨</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 items-center">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">כמות (כוסות)</label>
+              <input type="number" id="m_edit_feed_amount" step="0.25" min="0.25" max="4" value="${rec.amount}" required class="input-ltr w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-center">
+            </div>
+            <div class="pt-4 flex items-center gap-2">
+              <input type="checkbox" id="m_edit_feed_fin" ${rec.finished === 'כן' ? 'checked' : ''} class="w-4 h-4 text-indigo-600 rounded">
+              <label for="m_edit_feed_fin" class="text-xs font-bold text-slate-700 cursor-pointer">סיימה הכל? 🥣</label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">הערות</label>
+            <input type="text" id="m_edit_feed_notes" value="${escapeHtml(rec.notes || '')}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+          </div>
+        `;
+      } else if (sheetName === 'Away_Log') {
+        title.textContent = 'עריכת היעדרות (שורה ' + rowIndex + ')';
+        var rec = state.data.awayLog.find(function(r) { return r.rowIndex === rowIndex; });
+        if (!rec) return;
+
+        container.innerHTML = `
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">תאריך התחלה</label>
+              <input type="date" id="m_edit_away_start" value="${rec.startDate}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">תאריך חזרה</label>
+              <input type="date" id="m_edit_away_end" value="${rec.endDate}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">מיקום</label>
+            <select id="m_edit_away_loc" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-semibold">
+              <option value="אצל יאיר במשק 🚜" ${rec.location === 'אצל יאיר במשק 🚜' ? 'selected' : ''}>אצל יאיר במשק 🚜</option>
+              <option value="אצל ניקול בהרצליה 🏖️" ${rec.location === 'אצל ניקול בהרצליה 🏖️' ? 'selected' : ''}>אצל ניקול בהרצליה 🏖️</option>
+              <option value="אצל חברים בתל אביב 🏙️" ${rec.location === 'אצל חברים בתל אביב 🏙️' ? 'selected' : ''}>אצל חברים בתל אביב 🏙️</option>
+              <option value="בבית כשמישהו שומר עליה 🏠" ${rec.location === 'בבית כשמישהו שומר עליה 🏠' ? 'selected' : ''}>בבית כשמישהו שומר עליה 🏠</option>
+              <option value="פנסיון 🐾" ${rec.location === 'פנסיון 🐾' ? 'selected' : ''}>פנסיון 🐾</option>
+              <option value="אחר ✨" ${rec.location === 'אחר ✨' ? 'selected' : ''}>אחר ✨</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">הערות</label>
+            <input type="text" id="m_edit_away_notes" value="${escapeHtml(rec.notes || '')}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+          </div>
+        `;
+      } else if (sheetName === 'TaskLogs') {
+        title.textContent = 'עריכת ביצוע משימה (שורה ' + rowIndex + ')';
+        var rec = state.data.taskLogs.find(function(r) { return r.rowIndex === rowIndex; });
+        if (!rec) return;
+
+        container.innerHTML = `
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">תאריך</label>
+              <input type="date" id="m_edit_task_date" value="${rec.date}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">ציון (1-5)</label>
+              <input type="number" id="m_edit_task_score" min="1" max="5" value="${rec.success}" required class="input-ltr w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-center">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">שם התרגיל</label>
+            <input type="text" id="m_edit_task_name" value="${escapeHtml(rec.taskName)}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">הערות</label>
+            <input type="text" id="m_edit_task_notes" value="${escapeHtml(rec.notes || '')}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+          </div>
+        `;
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeEditModal() {
+      var modal = document.getElementById('editModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function handleEditModalSubmit(e) {
+      e.preventDefault();
+      var sheetName = document.getElementById('editSheetName').value;
+      var rowIndex = parseInt(document.getElementById('editRowIndex').value, 10);
+      var rowData = [];
+
+      if (sheetName === 'Training') {
+        var date = document.getElementById('m_edit_date').value;
+        var time = document.getElementById('m_edit_time').value;
+        var dur = parseFloat(document.getElementById('m_edit_dur').value);
+        var stress = parseInt(document.getElementById('m_edit_stress').value, 10);
+        var notes = document.getElementById('m_edit_notes').value;
+        rowData = [date, time, dur, stress, notes];
+
+        // Update local state item
+        var rec = state.data.training.find(function(r) { return r.rowIndex === rowIndex; });
+        if (rec) {
+          rec.date = date;
+          rec.time = time;
+          rec.duration = dur;
+          rec.stressLevel = stress;
+          rec.notes = notes;
+        }
+      } else if (sheetName === 'Feeding') {
+        var date = document.getElementById('m_edit_feed_date').value;
+        var time = document.getElementById('m_edit_feed_time').value;
+        var type = document.getElementById('m_edit_feed_type').value;
+        var amt = parseFloat(document.getElementById('m_edit_feed_amount').value);
+        var fin = document.getElementById('m_edit_feed_fin').checked ? 'כן' : 'לא';
+        var notes = document.getElementById('m_edit_feed_notes').value;
+        rowData = [date, time, type, amt, fin, notes];
+
+        var rec = state.data.feeding.find(function(r) { return r.rowIndex === rowIndex; });
+        if (rec) {
+          rec.date = date;
+          rec.time = time;
+          rec.type = type;
+          rec.amount = amt;
+          rec.finished = fin;
+          rec.notes = notes;
+        }
+      } else if (sheetName === 'Away_Log') {
+        var start = document.getElementById('m_edit_away_start').value;
+        var end = document.getElementById('m_edit_away_end').value;
+        var loc = document.getElementById('m_edit_away_loc').value;
+        var notes = document.getElementById('m_edit_away_notes').value;
+        var days = Math.round((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24));
+        rowData = [start, end, loc, days, notes];
+
+        var rec = state.data.awayLog.find(function(r) { return r.rowIndex === rowIndex; });
+        if (rec) {
+          rec.startDate = start;
+          rec.endDate = end;
+          rec.location = loc;
+          rec.daysCount = days;
+          rec.notes = notes;
+        }
+      } else if (sheetName === 'TaskLogs') {
+        var date = document.getElementById('m_edit_task_date').value;
+        var tName = document.getElementById('m_edit_task_name').value;
+        var score = parseInt(document.getElementById('m_edit_task_score').value, 10);
+        var notes = document.getElementById('m_edit_task_notes').value;
+        rowData = [date, tName, score, notes];
+
+        var rec = state.data.taskLogs.find(function(r) { return r.rowIndex === rowIndex; });
+        if (rec) {
+          rec.date = date;
+          rec.taskName = tName;
+          rec.success = score;
+          rec.notes = notes;
+        }
+      }
+
+      showSpinner('מעדכן שורה בגיליון...');
+      try {
+        var res = await callServer('updateRow', sheetName, rowIndex, rowData);
+        if (res.success) {
+          showToast(res.message || 'השורה עודכנה בהצלחה!', 'success');
+          if (sheetName === 'Training') {
+            recalcDefaultDuration();
+          }
+          closeEditModal();
+          renderTrainingChart();
+          renderFeedingChart();
+          renderTasksChart();
+          renderHistoryList();
+        } else {
+          showToast('שגיאה בעדכון: ' + (res.error || 'תקלה'), 'error');
+        }
+      } catch (err) {
+        showToast('תקלת תקשורת: ' + err.toString(), 'error');
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    function confirmDelete(sheetName, rowIndex, description) {
+      state.deletePending = { sheetName: sheetName, rowIndex: rowIndex };
+      var msg = document.getElementById('deleteModalMessage');
+      if (msg) msg.textContent = description || ('שורה ' + rowIndex + ' ב-' + sheetName);
+      var modal = document.getElementById('deleteModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeDeleteModal() {
+      state.deletePending = null;
+      var modal = document.getElementById('deleteModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function executeDeleteRecord() {
+      if (!state.deletePending) return;
+      var sheetName = state.deletePending.sheetName;
+      var rowIndex = state.deletePending.rowIndex;
+
+      showSpinner('מוחק שורה...');
+      try {
+        var res = await callServer('deleteRow', sheetName, rowIndex);
+        if (res.success) {
+          showToast(res.message || 'השורה נמחקה!', 'success');
+          
+          // Remove from local state
+          if (sheetName === 'Training') {
+            state.data.training = state.data.training.filter(function(r) { return r.rowIndex !== rowIndex; });
+            recalcDefaultDuration();
+          } else if (sheetName === 'Feeding') {
+            state.data.feeding = state.data.feeding.filter(function(r) { return r.rowIndex !== rowIndex; });
+          } else if (sheetName === 'Away_Log') {
+            state.data.awayLog = state.data.awayLog.filter(function(r) { return r.rowIndex !== rowIndex; });
+          } else if (sheetName === 'TaskLogs') {
+            state.data.taskLogs = state.data.taskLogs.filter(function(r) { return r.rowIndex !== rowIndex; });
+          }
+
+          closeDeleteModal();
+          renderTrainingChart();
+          renderFeedingChart();
+          renderTasksChart();
+          renderHistoryList();
+        } else {
+          showToast('שגיאה במחיקה: ' + (res.error || 'תקלה'), 'error');
+        }
+      } catch (err) {
+        showToast('תקלת תקשורת: ' + err.toString(), 'error');
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    /* =========================================================================
+     * UI UTILITIES (TOASTS, SPINNER, ESCAPING)
+     * ========================================================================= */
+    function showToast(message, type) {
+      type = type || 'info';
+      var container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      var toast = document.createElement('div');
+      var bg = 'bg-slate-800 text-white';
+      var icon = 'ℹ️';
+
+      if (type === 'success') {
+        bg = 'bg-emerald-600 text-white';
+        icon = '✅';
+      } else if (type === 'error') {
+        bg = 'bg-rose-600 text-white';
+        icon = '⚠️';
+      } else if (type === 'warning') {
+        bg = 'bg-amber-600 text-white';
+        icon = '🔔';
+      }
+
+      toast.className = bg + ' px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold flex items-center gap-2 pointer-events-auto transition transform translate-y-2 opacity-0 duration-200';
+      toast.innerHTML = '<span>' + icon + '</span><span>' + escapeHtml(message) + '</span>';
+
+      container.appendChild(toast);
+      setTimeout(function() {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(function() {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(function() {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 200);
+      }, 3500);
+    }
+
+    function showSpinner(msg) {
+      var overlay = document.getElementById('loadingOverlay');
+      var label = document.getElementById('loadingMessage');
+      if (label && msg) label.textContent = msg;
+      if (overlay) {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+      }
+    }
+
+    function hideSpinner() {
+      var overlay = document.getElementById('loadingOverlay');
+      if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
