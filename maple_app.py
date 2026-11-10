@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, timedelta
 import plotly.express as px
 import time 
@@ -42,10 +41,8 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1URUI3gpIa2wx_gQdEawCDRp8Tw4
 
 @st.cache_resource
 def get_client():
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds_dict = dict(st.secrets["gcp_service_account"])
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    return gspread.authorize(creds)
+    return gspread.service_account_from_dict(creds_dict)
 
 def get_worksheet(worksheet_name):
     # מנגנון ניסיון חוזר גם בחיבור לגיליון
@@ -83,7 +80,8 @@ def get_data(worksheet_name):
                     time.sleep(2 ** (n + 1)) # המתנה מדורגת: 2 שניות, 4 שניות...
                     continue
             # אם זו שגיאה אחרת או שנגמרו הניסיונות
-            st.error(f"שגיאה בטעינת נתונים (נסה לרענן): {e}")
+            err_msg = str(e).strip() or f"{type(e).__name__}: {repr(e)}"
+            st.error(f"שגיאה בטעינת נתונים (נסה לרענן): {err_msg}")
             return pd.DataFrame()
     return pd.DataFrame()
 
