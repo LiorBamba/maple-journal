@@ -80,8 +80,16 @@ def get_data(worksheet_name):
                     time.sleep(2 ** (n + 1)) # המתנה מדורגת: 2 שניות, 4 שניות...
                     continue
             # אם זו שגיאה אחרת או שנגמרו הניסיונות
-            err_msg = str(e).strip() or f"{type(e).__name__}: {repr(e)}"
-            st.error(f"שגיאה בטעינת נתונים (נסה לרענן): {err_msg}")
+            cause = getattr(e, "__cause__", None)
+            err_details = str(cause) if cause else (str(e).strip() or repr(e))
+            st.error(f"שגיאת הרשאות או טעינת נתונים ({type(e).__name__}): {err_details}")
+            
+            if isinstance(e, PermissionError) or "403" in str(err_details) or "permission" in str(err_details).lower():
+                try:
+                    sa_email = st.secrets.get("gcp_service_account", {}).get("client_email", "לא נמצא client_email בהגדרות")
+                    st.warning(f"💡 ודא שגיליון הגוגל שיטס משותף כ-Editor עם כתובת ה-Service Account: **`{sa_email}`**")
+                except Exception:
+                    pass
             return pd.DataFrame()
     return pd.DataFrame()
 
