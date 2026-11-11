@@ -32,9 +32,29 @@ function getSpreadsheet() {
  * Serves Index.html with bootstrapped data for instant 0ms client-side initial load.
  */
 function doGet(e) {
-  checkAndInitSheets();
+  try {
+    checkAndInitSheets();
+  } catch (errInit) {
+    Logger.log('Warning in checkAndInitSheets: ' + errInit.toString());
+  }
   
-  var template = HtmlService.createTemplateFromFile('Index');
+  var template = null;
+  var candidateNames = ['Index', 'index', 'Index.html', 'index.html'];
+  for (var i = 0; i < candidateNames.length; i++) {
+    try {
+      template = HtmlService.createTemplateFromFile(candidateNames[i]);
+      if (template) break;
+    } catch (errFind) {}
+  }
+
+  if (!template) {
+    return HtmlService.createHtmlOutput(
+      '<div dir="rtl" style="font-family: system-ui, sans-serif; padding: 24px; max-width: 600px; margin: 40px auto; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 16px; color: #9f1239; line-height: 1.6;">' +
+      '<h2 style="margin-top: 0;">⚠️ קובץ הממשק (Index.html) לא נמצא</h2>' +
+      '<p>בעורך ה-Apps Script, יש לוודא שנוצר קובץ <b>HTML</b> (על ידי לחיצה על <b>+ -> HTML</b>) בשם <b>Index</b> ושהודבק בתוכו קוד הממשק.</p>' +
+      '</div>'
+    ).setTitle('שגיאת התקנה - היומן של מייפל');
+  }
   
   try {
     template.initialData = getInitialData();

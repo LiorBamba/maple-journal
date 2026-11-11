@@ -766,7 +766,6 @@
     // Injected bootstrapped data from GAS backend, or local mock fallback
     var BOOTSTRAP_DATA = null;
     try {
-      // In Google Apps Script: <?!= JSON.stringify(initialData) ?>
       BOOTSTRAP_DATA = <?!= JSON.stringify(initialData) ?>;
     } catch (e) {
       // Local development or preview fallback
@@ -955,14 +954,20 @@
      * INITIALIZATION & LIFECYCLE
      * ========================================================================= */
     document.addEventListener('DOMContentLoaded', function() {
-      lucide.createIcons();
+      try {
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+          lucide.createIcons();
+        }
+      } catch (eLucide) {
+        console.warn('Lucide icons warning:', eLucide);
+      }
       initDateInputs();
       initDefaultDurations();
       populateActiveTasksDropdown();
-      renderTrainingChart();
-      renderFeedingChart();
-      renderTasksChart();
-      renderHistoryList();
+      try { renderTrainingChart(); } catch (e) { console.error('Training chart error:', e); }
+      try { renderFeedingChart(); } catch (e) { console.error('Feeding chart error:', e); }
+      try { renderTasksChart(); } catch (e) { console.error('Tasks chart error:', e); }
+      try { renderHistoryList(); } catch (e) { console.error('History list error:', e); }
     });
 
     /**
