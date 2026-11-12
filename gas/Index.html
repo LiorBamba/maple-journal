@@ -353,7 +353,9 @@
               <select id="awayLocation"
                 class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 <option value="אצל יאיר במשק 🚜">אצל יאיר במשק 🚜 (סגול)</option>
+                <option value="אצל אבא במשק 🚜">אצל אבא במשק 🚜 (סגול)</option>
                 <option value="אצל ניקול בהרצליה 🏖️">אצל ניקול בהרצליה 🏖️ (טורקיז)</option>
+                <option value="אצל טרייסי במנוף 🏡">אצל טרייסי במנוף 🏡 (ירוק)</option>
                 <option value="אצל חברים בתל אביב 🏙️">אצל חברים בתל אביב 🏙️ (כחול)</option>
                 <option value="בבית כשמישהו שומר עליה 🏠">בבית כשמישהו שומר עליה 🏠 (כתום)</option>
                 <option value="פנסיון 🐾">פנסיון 🐾 (ורוד)</option>
@@ -857,7 +859,10 @@
     // Location colors specification
     var LOCATION_COLORS = {
       "אצל יאיר במשק 🚜": { color: "#8E24AA", rgba: "rgba(142, 36, 170, 0.22)" },
+      "אצל אבא במשק 🚜": { color: "#8E24AA", rgba: "rgba(142, 36, 170, 0.22)" },
       "אצל ניקול בהרצליה 🏖️": { color: "#00897B", rgba: "rgba(0, 137, 123, 0.22)" },
+      "אצל טרייסי במנוף 🏡": { color: "#059669", rgba: "rgba(5, 150, 105, 0.22)" },
+      "אצל טרייסי במנוף": { color: "#059669", rgba: "rgba(5, 150, 105, 0.22)" },
       "אצל חברים בתל אביב 🏙️": { color: "#1E88E5", rgba: "rgba(30, 136, 229, 0.22)" },
       "בבית כשמישהו שומר עליה 🏠": { color: "#FB8C00", rgba: "rgba(251, 140, 0, 0.22)" },
       "פנסיון 🐾": { color: "#D81B60", rgba: "rgba(216, 27, 96, 0.22)" },
@@ -2356,7 +2361,9 @@
             <label class="block text-xs font-semibold text-slate-600 mb-1">מיקום</label>
             <select id="m_edit_away_loc" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-semibold">
               <option value="אצל יאיר במשק 🚜" ${rec.location === 'אצל יאיר במשק 🚜' ? 'selected' : ''}>אצל יאיר במשק 🚜</option>
+              <option value="אצל אבא במשק 🚜" ${rec.location === 'אצל אבא במשק 🚜' ? 'selected' : ''}>אצל אבא במשק 🚜</option>
               <option value="אצל ניקול בהרצליה 🏖️" ${rec.location === 'אצל ניקול בהרצליה 🏖️' ? 'selected' : ''}>אצל ניקול בהרצליה 🏖️</option>
+              <option value="אצל טרייסי במנוף 🏡" ${(rec.location || '').indexOf('טרייסי') !== -1 ? 'selected' : ''}>אצל טרייסי במנוף 🏡</option>
               <option value="אצל חברים בתל אביב 🏙️" ${rec.location === 'אצל חברים בתל אביב 🏙️' ? 'selected' : ''}>אצל חברים בתל אביב 🏙️</option>
               <option value="בבית כשמישהו שומר עליה 🏠" ${rec.location === 'בבית כשמישהו שומר עליה 🏠' ? 'selected' : ''}>בבית כשמישהו שומר עליה 🏠</option>
               <option value="פנסיון 🐾" ${rec.location === 'פנסיון 🐾' ? 'selected' : ''}>פנסיון 🐾</option>
@@ -2623,7 +2630,10 @@
     }
 
     function openQrModal() {
-      var url = window.location.href;
+      var url = (state.data && state.data.webAppUrl) ? state.data.webAppUrl : window.location.href;
+      if (url.indexOf('script.googleusercontent.com') !== -1 && state.data && state.data.webAppUrl) {
+        url = state.data.webAppUrl;
+      }
       var qrImg = document.getElementById('qrModalImg');
       if (qrImg) {
         qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(url);
@@ -2647,7 +2657,7 @@
     }
 
     function copyAppUrl() {
-      var url = window.location.href;
+      var url = (state.data && state.data.webAppUrl) ? state.data.webAppUrl : window.location.href;
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(function() {
           showToast('הקישור הועתק בהצלחה! 📋', 'success');

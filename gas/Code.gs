@@ -261,13 +261,19 @@ function getInitialData() {
     }
   }
 
+  var webAppUrl = '';
+  try {
+    webAppUrl = ScriptApp.getService().getUrl() || '';
+  } catch (e) {}
+
   return {
     training: trainingData,
     awayLog: awayData,
     feeding: feedingData,
     tasks: tasksData,
     taskLogs: taskLogsData,
-    defaultDuration: defaultDuration
+    defaultDuration: defaultDuration,
+    webAppUrl: webAppUrl
   };
 }
 
