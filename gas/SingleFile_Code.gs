@@ -150,10 +150,7 @@ function doGet(e) {
 
   return template.evaluate()
     .setTitle('Maple Journal - מעקב מייפל')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
-    .addMetaTag('apple-mobile-web-app-capable', 'yes')
-    .addMetaTag('apple-mobile-web-app-status-bar-style', 'default')
-    .addMetaTag('apple-mobile-web-app-title', 'מייפל')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
