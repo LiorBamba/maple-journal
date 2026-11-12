@@ -150,7 +150,6 @@ function doGet(e) {
 
   return template.evaluate()
     .setTitle('Maple Journal - מעקב מייפל')
-    .setFaviconUrl('https://emojicdn.elk.sh/🐕')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
     .addMetaTag('apple-mobile-web-app-capable', 'yes')
     .addMetaTag('apple-mobile-web-app-status-bar-style', 'default')
