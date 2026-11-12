@@ -107,8 +107,13 @@
         </div>
       </div>
 
-      <!-- Sync / Refresh Button -->
+      <!-- Actions & QR Code -->
       <div class="flex items-center space-x-2 space-x-reverse">
+        <button onclick="openQrModal()" title="קוד QR להתקנה בטלפון"
+          class="py-1.5 px-3 rounded-xl text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition active:scale-95 flex items-center gap-1.5 text-xs sm:text-sm font-bold border border-indigo-200 shadow-sm">
+          <i data-lucide="qr-code" class="w-4 h-4"></i>
+          <span>קוד QR לנייד 📱</span>
+        </button>
         <button id="btnRefresh" onclick="refreshAllData()" title="רענן נתונים"
           class="p-2 rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition active:scale-95 flex items-center gap-1.5 text-sm font-medium">
           <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -717,6 +722,35 @@
           class="flex-1 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow">
           כן, מחק 🗑️
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Code Modal -->
+  <div id="qrModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 text-center space-y-4 animate-fadeIn">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🐕</span>
+          <h3 class="font-bold text-slate-800 text-base">היומן של מייפל בנייד</h3>
+        </div>
+        <button onclick="closeQrModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-600">סרוק עם מצלמת הטלפון כדי לפתוח את האפליקציה מיד:</p>
+
+      <div class="p-3 bg-white border border-slate-200 rounded-2xl inline-block shadow-sm">
+        <img id="qrModalImg" src="" alt="QR Code" class="w-48 h-48 mx-auto rounded-lg" />
+      </div>
+
+      <div class="space-y-2 pt-2">
+        <button onclick="copyAppUrl()" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+          <span>העתק קישור לאפליקציה</span>
+        </button>
+        <p class="text-[11px] text-slate-400">💡 טיפ: בנייד לחץ על "הוסף למסך הבית" להפעלה כאפליקציה מלאה</p>
       </div>
     </div>
   </div>
@@ -1624,7 +1658,8 @@
       sessions.forEach(function(s) {
         if (!cutoffDateStr || s.date >= cutoffDateStr) {
           scatterPoints.push({
-            x: s.date, // align to daily X axis
+            x: s.date,
+            date: s.date,
             y: s.duration,
             stress: s.stress,
             time: s.time,
@@ -1633,17 +1668,48 @@
         }
       });
 
-      // Away stays annotations
+      // Away stays annotations - strictly clamped to visible index boundaries
       var awayAnnotations = {};
       (awayList || []).forEach(function(aw, idx) {
         if (!aw.startDate || !aw.endDate) return;
-        if (cutoffDateStr && aw.endDate < cutoffDateStr) return;
+        var sDate = aw.startDate;
+        var eDate = aw.endDate;
+        if (sDate > eDate) {
+          var tmp = sDate; sDate = eDate; eDate = tmp;
+        }
+
+        var minVisible = filteredDates[0];
+        var maxVisible = filteredDates[filteredDates.length - 1];
+
+        // If stay is completely outside visible range, skip
+        if (eDate < minVisible || sDate > maxVisible) return;
+
+        // Clamp to visible range
+        var effectiveStart = (sDate < minVisible) ? minVisible : sDate;
+        var effectiveEnd = (eDate > maxVisible) ? maxVisible : eDate;
+
+        var startIdx = filteredDates.indexOf(effectiveStart);
+        if (startIdx === -1) {
+          for (var d = 0; d < filteredDates.length; d++) {
+            if (filteredDates[d] >= effectiveStart) { startIdx = d; break; }
+          }
+        }
+        var endIdx = filteredDates.indexOf(effectiveEnd);
+        if (endIdx === -1) {
+          for (var d = filteredDates.length - 1; d >= 0; d--) {
+            if (filteredDates[d] <= effectiveEnd) { endIdx = d; break; }
+          }
+        }
+
+        if (startIdx === -1) startIdx = 0;
+        if (endIdx === -1) endIdx = filteredDates.length - 1;
+        if (endIdx < startIdx) endIdx = startIdx;
 
         var locStyle = LOCATION_COLORS[aw.location] || LOCATION_COLORS["אחר ✨"];
         awayAnnotations['away_' + idx] = {
           type: 'box',
-          xMin: aw.startDate,
-          xMax: aw.endDate,
+          xMin: startIdx,
+          xMax: endIdx,
           backgroundColor: locStyle.rgba,
           borderWidth: 0,
           label: {
@@ -1787,15 +1853,20 @@
               callbacks: {
                 title: function(items) {
                   if (!items || items.length === 0) return '';
-                  return 'תאריך: ' + items[0].label;
+                  var item = items[0];
+                  var raw = item.raw;
+                  if (raw && typeof raw === 'object' && (raw.date || raw.x)) {
+                    return 'תאריך: ' + (raw.date || raw.x);
+                  }
+                  return 'תאריך: ' + item.label;
                 },
                 label: function(context) {
                   if (context.dataset.type === 'scatter') {
                     var raw = context.raw;
                     var stressInfo = STRESS_MAP[raw.stress] || STRESS_MAP[3];
                     return [
-                      '⏳ זמן: ' + raw.y + ' שעות (' + (raw.time || '') + ')',
-                      '😰 לחץ: ' + stressInfo.label,
+                      '⏳ משך: ' + raw.y + ' שעות' + (raw.time ? ' (' + raw.time + ')' : ''),
+                      '😰 רמת לחץ: ' + stressInfo.label,
                       raw.notes ? '📝 הערות: ' + raw.notes : ''
                     ].filter(Boolean);
                   }
@@ -2549,6 +2620,53 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+    }
+
+    function openQrModal() {
+      var url = window.location.href;
+      var qrImg = document.getElementById('qrModalImg');
+      if (qrImg) {
+        qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(url);
+      }
+      var m = document.getElementById('qrModal');
+      if (m) {
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+      }
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    }
+
+    function closeQrModal() {
+      var m = document.getElementById('qrModal');
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
+    }
+
+    function copyAppUrl() {
+      var url = window.location.href;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function() {
+          showToast('הקישור הועתק בהצלחה! 📋', 'success');
+        }).catch(function() {
+          prompt('העתק את הקישור לאפליקציה:', url);
+        });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          showToast('הקישור הועתק בהצלחה! 📋', 'success');
+        } catch (e) {
+          prompt('העתק את הקישור לאפליקציה:', url);
+        }
+        document.body.removeChild(ta);
+      }
     }
   </script>
 </body>
