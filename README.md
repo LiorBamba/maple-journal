@@ -72,29 +72,33 @@
 ```text
 maple-journal/
 ├── gas/
-│   ├── Code.gs             # קוד השרת המלא של Google Apps Script (CRUD, נעילות, אתחול)
-│   └── Index.html          # קוד הממשק המלא (Tailwind CSS, Rubik, Lucide, Chart.js)
-├── DEPLOYMENT.md           # מדריך פריסה והתקנה מפורט צעד-אחר-צעד
+│   ├── SingleFile_Code.gs  # 🚀 הקובץ המאוחד המומלץ: שרת + ממשק מוטמע בקובץ אחד ללא צורך ביצירת קבצים נוספים!
+│   ├── Code.gs             # קוד שרת מודולרי (למי שמעדיף הפרדה לקבצים)
+│   └── Index.html          # ממשק המשתמש המלא (Tailwind CSS, Rubik, Lucide, Chart.js)
+├── scripts/
+│   └── build_single_file.js # סקריפט אוטומטי לאריזת SingleFile_Code.gs
+├── DEPLOYMENT.md           # מדריך פריסה והתקנה מהיר צעד-אחר-צעד (קובץ יחיד, דקה אחת)
 ├── README.md               # מסמך זה
 └── maple_app.py            # קוד ה-Streamlit הישן (לעיון והשוואה)
 ```
 
 ---
 
-## 📱 התקנה ופריסה מהירה (2 דקות)
+## 📱 התקנה ופריסה מהירה (קובץ יחיד — דקה אחת)
 
 למדריך המלא הכולל תמונות והסברים מפורטים, עיינו בקובץ:  
 👉 **[מדריך הפריסה המלא — DEPLOYMENT.md](./DEPLOYMENT.md)**
 
-### תמצית השלבים:
+### תמצית השלבים (Single-File Fast Track):
 1. פתחו את הגיליון: [Google Spreadsheet — Maple Journal](https://docs.google.com/spreadsheets/d/1URUI3gpIa2wx_gQdEawCDRp8Tw4h20gun2zeegC-Oz8).
-2. עברו אל **הרחבות (Extensions)** -> **Apps Script**.
-3. הדביקו את תוכנו של [`gas/Code.gs`](./gas/Code.gs) לתוך `Code.gs`.
-4. צרו קובץ HTML חדש בשם `Index` והדביקו את תוכנו של [`gas/Index.html`](./gas/Index.html).
-5. לחצו על **פריסה (Deploy)** -> **פריסה חדשה (New deployment)** -> סוג: **יישום אינטרנט (Web app)**:
-   * **Execute as**: Me (`your_email@gmail.com`)
+2. עברו אל **הרחבות (Extensions)** &larr; **Apps Script**.
+3. מחקו את מה שיש ב-`Code.gs`, והדביקו את כל התוכן מתוך:  
+   👉 **[SingleFile_Code.gs (Raw)](https://raw.githubusercontent.com/LiorBamba/maple-journal/main/gas/SingleFile_Code.gs)**
+4. לחצו על **פריסה (Deploy)** &larr; **פריסה חדשה (New deployment)** &larr; סוג: **יישום אינטרנט (Web app)**:
+   * **Execute as**: Me
    * **Who has access**: Anyone
-6. אשרו את ההרשאות הראשוניות וקבלו את כתובת האפליקציה למובייל!
+5. אשרו את ההרשאות הראשוניות (מתקדם &larr; מעבר אל Maple Journal &larr; אפשר).
+6. **זהו!** תקבלו קישור לאפליקציה למובייל ולמחשב. בנוסף, בריענון הגיליון יופיע תפריט `🐾 יומן מייפל` עם קוד QR לסריקה ישירה מהטלפון!
 
 ---
 

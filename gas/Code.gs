@@ -28,6 +28,74 @@ function getSpreadsheet() {
 }
 
 /**
+ * Automatically creates custom menu in Google Sheets upon opening.
+ */
+function onOpen() {
+  try {
+    var ui = SpreadsheetApp.getUi();
+    ui.createMenu('🐾 יומן מייפל')
+      .addItem('📱 פתח את אפליקציית הרשת (Web App)', 'openWebAppUrl')
+      .addItem('📲 קוד QR להתקנה בטלפון', 'showAppUrlDialog')
+      .addSeparator()
+      .addItem('🔄 בדיקת תקינות גיליונות', 'checkAndInitSheets')
+      .addToUi();
+  } catch (e) {
+    // Might not have UI context if running standalone
+  }
+}
+
+/**
+ * Shows a modal dialog with QR code and link for instant mobile access.
+ */
+function showAppUrlDialog() {
+  var url = ScriptApp.getService().getUrl();
+  var html;
+  if (!url || url.indexOf('macros/s') === -1) {
+    html = '<div dir="rtl" style="font-family: system-ui, sans-serif; padding: 20px; text-align: center;">' +
+      '<h3 style="color: #4f46e5; margin-top: 0;">📲 פריסת האפליקציה ב-2 קליקים</h3>' +
+      '<p style="color: #475569; font-size: 14px; line-height: 1.6;">כדי לקבל את קישור האפליקציה וקוד ה-QR לטלפון, יש לבצע פריסה חד-פעמית:</p>' +
+      '<ol style="text-align: right; color: #334155; font-size: 13px; line-height: 1.8; padding-right: 20px;">' +
+      '<li>לחץ על <b>פריסה (Deploy)</b> &larr; <b>פריסה חדשה (New deployment)</b></li>' +
+      '<li>לחץ על גלגל השיניים ⚙️ ובחר <b>יישום אינטרנט (Web app)</b></li>' +
+      '<li>הגדר "למי יש גישה" &larr; <b>כל אחד (Anyone)</b></li>' +
+      '<li>לחץ <b>פריסה (Deploy)</b> ואשר את ההרשאות.</li>' +
+      '</ol>' +
+      '</div>';
+  } else {
+    var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(url);
+    html = '<div dir="rtl" style="font-family: system-ui, sans-serif; padding: 16px; text-align: center;">' +
+      '<h3 style="color: #4f46e5; margin-top: 0; margin-bottom: 6px;">🐕 היומן של מייפל בנייד</h3>' +
+      '<p style="color: #64748b; font-size: 13px; margin-bottom: 14px;">סרוק עם מצלמת הטלפון כדי לפתוח את האפליקציה מיד:</p>' +
+      '<div style="margin: 0 auto 14px; padding: 10px; background: white; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: inline-block;">' +
+      '<img src="' + qrUrl + '" width="180" height="180" alt="QR Code" style="display: block; border-radius: 8px;" />' +
+      '</div>' +
+      '<p><a href="' + url + '" target="_blank" style="display: inline-block; padding: 10px 20px; background: #4f46e5; color: white; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 14px;">פתח אפליקציה בדפדפן 🔗</a></p>' +
+      '<p style="color: #94a3b8; font-size: 11px; margin-top: 10px;">טיפ: לאחר הפתיחה בנייד, לחץ על שתף &larr; "הוסף למסך הבית"</p>' +
+      '</div>';
+  }
+  var htmlOutput = HtmlService.createHtmlOutput(html).setWidth(360).setHeight(430);
+  SpreadsheetApp.getUi().showModalDialog(htmlOutput, '📱 יומן מייפל');
+}
+
+/**
+ * Direct launch helper for Web App from spreadsheet menu.
+ */
+function openWebAppUrl() {
+  var url = ScriptApp.getService().getUrl();
+  if (url && url.indexOf('macros/s') !== -1) {
+    var html = '<div dir="rtl" style="font-family: system-ui, sans-serif; padding: 20px; text-align: center;">' +
+      '<p style="font-size: 15px; font-weight: bold; color: #1e293b; margin-bottom: 16px;">פותח את יומן מייפל...</p>' +
+      '<a href="' + url + '" target="_blank" style="display: inline-block; padding: 10px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 10px; font-weight: bold;">פתח בחלון חדש 🔗</a>' +
+      '<script>window.open("' + url + '", "_blank");</script>' +
+      '</div>';
+    var htmlOutput = HtmlService.createHtmlOutput(html).setWidth(320).setHeight(160);
+    SpreadsheetApp.getUi().showModalDialog(htmlOutput, 'פותח אפליקציה...');
+  } else {
+    showAppUrlDialog();
+  }
+}
+
+/**
  * Main Web App Entrypoint.
  * Serves Index.html with bootstrapped data for instant 0ms client-side initial load.
  */
@@ -47,11 +115,20 @@ function doGet(e) {
     } catch (errFind) {}
   }
 
+  if (!template && typeof getEmbeddedHtml === 'function') {
+    try {
+      template = HtmlService.createTemplate(getEmbeddedHtml());
+    } catch (errEmb) {
+      Logger.log('Error creating template from embedded HTML: ' + errEmb.toString());
+    }
+  }
+
   if (!template) {
     return HtmlService.createHtmlOutput(
       '<div dir="rtl" style="font-family: system-ui, sans-serif; padding: 24px; max-width: 600px; margin: 40px auto; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 16px; color: #9f1239; line-height: 1.6;">' +
       '<h2 style="margin-top: 0;">⚠️ קובץ הממשק (Index.html) לא נמצא</h2>' +
       '<p>בעורך ה-Apps Script, יש לוודא שנוצר קובץ <b>HTML</b> (על ידי לחיצה על <b>+ -> HTML</b>) בשם <b>Index</b> ושהודבק בתוכו קוד הממשק.</p>' +
+      '<p style="font-size: 13px; color: #64748b;">(לחלופין, ניתן להשתמש בקובץ המאוחד <b>SingleFile_Code.gs</b> שאינו דורש קבצים נוספים כלל).</p>' +
       '</div>'
     ).setTitle('שגיאת התקנה - היומן של מייפל');
   }
@@ -262,6 +339,9 @@ function getAwayData(optionalSs) {
   var endIdx = headers.indexOf('End_Date');
   var locIdx = headers.indexOf('Location');
   var daysIdx = headers.indexOf('Days_Count');
+  if (daysIdx === -1) {
+    daysIdx = headers.indexOf('Total_Days');
+  }
   var notesIdx = headers.indexOf('Notes');
 
   var list = [];
