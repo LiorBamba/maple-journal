@@ -2629,11 +2629,17 @@
         .replace(/'/g, '&#039;');
     }
 
-    function openQrModal() {
-      var url = (state.data && state.data.webAppUrl) ? state.data.webAppUrl : window.location.href;
-      if (url.indexOf('script.googleusercontent.com') !== -1 && state.data && state.data.webAppUrl) {
-        url = state.data.webAppUrl;
+    var CANONICAL_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyUD0SLHLtXQAbAxiL8V5hqoMtiDXzeZ70coX4itIc8IWEjwE31epkM_xeqWF9OK8dKlQ/exec';
+
+    function getResolvedAppUrl() {
+      if (state.data && state.data.webAppUrl && state.data.webAppUrl.indexOf('macros/s/') !== -1) {
+        return state.data.webAppUrl;
       }
+      return CANONICAL_WEB_APP_URL;
+    }
+
+    function openQrModal() {
+      var url = getResolvedAppUrl();
       var qrImg = document.getElementById('qrModalImg');
       if (qrImg) {
         qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(url);
@@ -2657,7 +2663,7 @@
     }
 
     function copyAppUrl() {
-      var url = (state.data && state.data.webAppUrl) ? state.data.webAppUrl : window.location.href;
+      var url = getResolvedAppUrl();
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(function() {
           showToast('הקישור הועתק בהצלחה! 📋', 'success');
